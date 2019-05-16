@@ -16,6 +16,11 @@ def pdb_to_pqr(mol_name , stern_thickness , method = 'amber' ):
     pdb_file , pdb_directory = mol_name+'.pdb' , os.path.join('Molecule',mol_name)
     pqr_file , xyzr_file     = mol_name+'.pqr' , mol_name+'.xyzr'
     
+    print(os.path.isfile(os.path.join(path,pqr_file)),)
+    if os.path.isfile(os.path.join('Molecule/',mol_name,pqr_file)):
+        print('File already exists in directory.')
+        return None
+    
     # The apbs-pdb2pqr rutine, allow us to generate a .pqr file
     pdb2pqr_dir = os.path.join('Software','apbs-pdb2pqr-master','pdb2pqr','main.py')
     exe=('python2.7  ' + pdb2pqr_dir + ' '+ os.path.join(pdb_directory,pdb_file) +
