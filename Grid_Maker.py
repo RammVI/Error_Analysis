@@ -16,7 +16,6 @@ def pdb_to_pqr(mol_name , stern_thickness , method = 'amber' ):
     pdb_file , pdb_directory = mol_name+'.pdb' , os.path.join('Molecule',mol_name)
     pqr_file , xyzr_file     = mol_name+'.pqr' , mol_name+'.xyzr'
     
-    print(os.path.isfile(os.path.join(path,pqr_file)),)
     if os.path.isfile(os.path.join('Molecule/',mol_name,pqr_file)):
         print('File already exists in directory.')
         return None
@@ -213,7 +212,7 @@ def xyzr_to_msh(mol_name , dens , probe_radius , stern_thickness , min_area , Ma
     print('Mesh Ready')
     return
     
-def factory_fun_msh( mol_directory , mol_name , min_area , dens , Mallador):
+def factory_fun_msh( mol_directory , mol_name , min_area , dens , Mallador , suffix = ''):
     # Factory function for creating a .msh file from .vert & .face files
     
     factory = bempp.api.grid.GridFactory()
@@ -224,35 +223,65 @@ def factory_fun_msh( mol_directory , mol_name , min_area , dens , Mallador):
     elif Mallador == 'NanoShaper':
         vert_Text = open( os.path.join(mol_directory , 'triangulatedSurf_{0:s}.vert'.format(str(dens)) ) ).read().split('\n')
         face_Text = open( os.path.join(mol_directory , 'triangulatedSurf_{0:s}.face'.format(str(dens)) ) ).read().split('\n')
-        
+    elif Mallador == 'Self':
+        vert_Text = open( os.path.join(mol_directory , mol_name +'_{0:s}{1}.vert'.format(str(dens),suffix) ) ).read().split('\n')
+        face_Text = open( os.path.join(mol_directory , mol_name +'_{0:s}{1}.face'.format(str(dens),suffix) ) ).read().split('\n')
+    
     xcount, atotal, a_excl = 0, 0., 0.
     vertex = np.empty((0,3))
 
-    # Create the grid with the factory method
     factory = bempp.api.grid.GridFactory()
-    for line in vert_Text:
-        line = line.split()
-        if len(line) != 9: continue
-        vertex = np.vstack(( vertex, np.array([line[0:3]]).astype(float) ))
-        factory.insert_vertex(vertex[-1])
-
+    # Create the grid with the factory method
+    
     # Grid assamble
-    for line in face_Text:
-        line = line.split()
-        if len(line)!=5: continue
-        A, B, C, _, _ = np.array(line).astype(int)
-        side1, side2  = vertex[B-1]-vertex[A-1], vertex[C-1]-vertex[A-1]
-        face_area = 0.5*np.linalg.norm(np.cross(side1, side2))
-        atotal += face_area
-        if face_area > min_area:
-            factory.insert_element([A-1, B-1, C-1])
-        else:
-            xcount += 1.4        
-            a_excl += face_area 
+    
+    if Mallador !='Self': 
+        
+        for line in vert_Text:
+            line = line.split()
+            if len(line) != 9: continue
+            vertex = np.vstack(( vertex, np.array([line[0:3]]).astype(float) ))
+            factory.insert_vertex(vertex[-1])
 
+        
+        for line in face_Text:
+            line = line.split()
+            if len(line)!=5 : continue
+            A, B, C, _, _ = np.array(line).astype(int)
+            side1, side2  = vertex[B-1]-vertex[A-1], vertex[C-1]-vertex[A-1]
+            face_area = 0.5*np.linalg.norm(np.cross(side1, side2))
+            atotal += face_area
+            if face_area > min_area:
+                factory.insert_element([A-1, B-1, C-1])
+            else:
+                xcount += 1.4        
+                a_excl += face_area 
+    
+    elif Mallador == 'Self':
+        for line in vert_Text[:-1]:
+            line = line.split()
+            vertex = np.vstack( ( vertex, np.array(line).astype(float) )  )
+            factory.insert_vertex(vertex[-1])
+        
+        print(vertex)
+            
+        for line in face_Text[:-1]:
+            line = line.split()
+
+            A, B, C = np.array(line).astype(int)
+            side1, side2  = vertex[B-1]-vertex[A-1], vertex[C-1]-vertex[A-1]
+            face_area = 0.5*np.linalg.norm(np.cross(side1, side2))
+            atotal += face_area
+            if face_area > min_area:
+                factory.insert_element([A-1, B-1, C-1])
+            else:
+                xcount += 1.4        
+                a_excl += face_area 
+    
+    
     grid = factory.finalize()
     
-    export_file = os.path.join(mol_directory , mol_name +'_'+str(dens)+'.msh' )
+    export_file = os.path.join(mol_directory , mol_name +'_'+str(dens)+ suffix +'.msh' )
     bempp.api.export(grid=grid, file_name=export_file) 
     
     return grid
@@ -275,7 +304,7 @@ def triangle_areas(mol_directory , mol_name , dens , save = False):
     for line in vert_Text:
         line = line.split()
         if len(line) != 9: continue
-        vertex = np.vstack(( vertex, np.array([line[0:3]]).astype(float) ))
+        vertex = np.vstack(( vertex, np.array(line).astype(float) ))
     
     atotal=0.0
     # Grid assamble
@@ -295,6 +324,36 @@ def triangle_areas(mol_directory , mol_name , dens , save = False):
         return area_list
     return None
     
+def vert_and_face_arrays_to_text_and_mesh(mol_name , vert_array , face_array , suffix , dens=2.0):
+    '''
+    This rutine saves the info from vert_array and face_array and creates .msh and areas.txt files
+    mol_name : Abreviated name for the molecule
+    dens     : Mesh density, anyway is not a parameter, just a name for the file
+    vert_array: array containing verts
+    face_array: array containing verts positions for each face
+    suffix    : text added to diference the meshes
+    '''
+    normalized_path = os.path.join('Molecule',mol_name,mol_name+'_'+str(dens)+suffix)
+    
+    vert_txt = open( normalized_path+'.vert' , 'w+' )
+    for vert in vert_array:
+        txt = ' '.join( vert.astype(str) )
+        vert_txt.write( txt + '\n')
+    vert_txt.close()
+    
+    face_txt = open( normalized_path+'.face' , 'w+' )
+    for face in face_array:
+        txt = ' '.join( face.astype(int).astype(str) )
+        face_txt.write( txt + '\n')
+    face_txt.close()
+    
+    mol_directory = os.path.join('Molecule',mol_name)
+    min_area = 0
+
+    factory_fun_msh( mol_directory , mol_name , min_area , dens , Mallador='Self', suffix=suffix)
+    triangle_areas(mol_directory , mol_name , str(dens) + suffix , save = True)
+    
+    return None
     
 def centroide( vert_list ):
     #  Function that returns the mid point 
