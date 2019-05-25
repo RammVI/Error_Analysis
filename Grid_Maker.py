@@ -263,8 +263,6 @@ def factory_fun_msh( mol_directory , mol_name , min_area , dens , Mallador , suf
             vertex = np.vstack( ( vertex, np.array(line).astype(float) )  )
             factory.insert_vertex(vertex[-1])
         
-        print(vertex)
-            
         for line in face_Text[:-1]:
             line = line.split()
 
@@ -286,42 +284,70 @@ def factory_fun_msh( mol_directory , mol_name , min_area , dens , Mallador , suf
     
     return grid
 
-def triangle_areas(mol_directory , mol_name , dens , save = False):
+def triangle_areas(mol_directory , mol_name , dens , save = False,suffix = '', Self_build = False):
     """
     This function calculates the area of each element.
     Avoid using this with NanoShaper, only MSMS recomended
+    Self_build : False if using MSMS or NanoShaper - True if building with new methods
     """
     
-    vert_Text = open( os.path.join(mol_directory , mol_name +'_'+str(dens)+'.vert' ) ).read().split('\n')
-    face_Text = open( os.path.join(mol_directory , mol_name +'_'+str(dens)+'.face' ) ).read().split('\n')
+    vert_Text = open( os.path.join(mol_directory , mol_name +'_'+str(dens)+suffix+'.vert' ) ).read().split('\n')
+    face_Text = open( os.path.join(mol_directory , mol_name +'_'+str(dens)+suffix+'.face' ) ).read().split('\n')
     
     area_list = np.empty((0,1))
-    area_Text = open( os.path.join(mol_directory , 'triangleAreas_'+str(dens)+'.txt' ) , 'w+')
+    area_Text = open( os.path.join(mol_directory , 'triangleAreas_'+str(dens)+suffix+'.txt' ) , 'w+')
     
     vertex = np.empty((0,3))
     
+    if not Self_build:
+        for line in vert_Text:
+            line = line.split()
+            if len(line) !=9: continue
+            vertex = np.vstack(( vertex, np.array(line[0:3]).astype(float) ))
+
+        atotal=0.0
+        # Grid assamble
+        for line in face_Text:
+            line = line.split()
+            if len(line)!=5: continue
+            A, B, C, _, _ = np.array(line).astype(int)
+            side1, side2  = vertex[B-1]-vertex[A-1], vertex[C-1]-vertex[A-1]
+            face_area = 0.5*np.linalg.norm(np.cross(side1, side2))
+
+            area_Text.write( str(face_area)+'\n' )
+
+            area_list = np.vstack( (area_list , face_area ) )
+            atotal += face_area
+
+        area_Text.close()
+
+        if save:
+            return area_list
+        
+    elif Self_build:
+        for line in vert_Text[:-1]:
+            line = line.split()
+            
+            vertex = np.vstack(( vertex, np.array(line[0:3]).astype(float) ))
+
+        atotal=0.0
+        # Grid assamble
+        for line in face_Text[:-1]:
+            line = line.split()
+            A, B, C = np.array(line[0:3]).astype(int)
+            side1, side2  = vertex[B-1]-vertex[A-1], vertex[C-1]-vertex[A-1]
+            face_area = 0.5*np.linalg.norm(np.cross(side1, side2))
+
+            area_Text.write( str(face_area)+'\n' )
+
+            area_list = np.vstack( (area_list , face_area ) )
+            atotal += face_area
+
+        area_Text.close()
+
+        if save:
+            return area_list
     
-    for line in vert_Text:
-        line = line.split()
-        if len(line) != 9: continue
-        vertex = np.vstack(( vertex, np.array(line).astype(float) ))
-    
-    atotal=0.0
-    # Grid assamble
-    for line in face_Text:
-        line = line.split()
-        if len(line)!=5: continue
-        A, B, C, _, _ = np.array(line).astype(int)
-        side1, side2  = vertex[B-1]-vertex[A-1], vertex[C-1]-vertex[A-1]
-        face_area = 0.5*np.linalg.norm(np.cross(side1, side2))
-        
-        area_Text.write( str(face_area)+'\n' )
-        
-        area_list = np.vstack( (area_list , face_area ) )
-        atotal += face_area
-        
-    if save:
-        return area_list
     return None
     
 def vert_and_face_arrays_to_text_and_mesh(mol_name , vert_array , face_array , suffix , dens=2.0):
