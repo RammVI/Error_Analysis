@@ -1,7 +1,7 @@
 
 """
 It contains the functions to compute the fine Gaussian quadrature and the
-wights and gauss points for the regular Gauss quadrature.
+weights and gauss points for the regular Gauss quadrature.
 """
 import numpy
 
