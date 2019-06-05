@@ -5,14 +5,74 @@ wights and gauss points for the regular Gauss quadrature.
 """
 import numpy
 
+def N_values( Xi , eta , order):
+    '''
+    Returns coefficients to interpolate linear basis functions
+    
+    '''
+    if order == 1:
+        N1 = 1. - Xi - eta
+        N2 = Xi
+        N3 = eta
 
+        return N1 , N2 , N3
 
-def Gauss_Quadrature(face , face_array, vert_array, func, N ):
+    elif order == 2:
+        N1 = (1. - Xi - eta) * (1. - 2.* Xi - 2.* eta)
+        N2 = Xi  * (2.* Xi - 1 )
+        N3 = eta * (2. * eta -1)
+        N4 = 4. * Xi * (1. - Xi - eta)
+        N5 = 4. * Xi * eta
+        N6 = 4. * eta * (1. - Xi - eta)
+        
+        return N1,N2,N3,N4,N5,N6
+    
+    else:
+        print('Error en funcion N_values')
+        return None
+
+def matrix_lineal_transform( v1 , v2 , v3 ):
+    '''
+    Returns the asociated matrix transf. for the linear system
+                                            (0,1) eta
+                         | (0 , 0 , 0 ) |           |\
+      [A] | v1,v2,v3 | = | (1 , 0 , 0 ) |           | \   <---- Transformed triangle
+                         | (0 , 1 , 0 ) |     (0,0) |__\____ Xi
+                                                  (1,0) 
+    '''
+    
+    V =   np.transpose( np.array( ( v1 , v2 , v3) ) )
+    
+    if numpy.linalg.det(V) == 0:
+        print('Zero matrix encountered!')
+        
+        # Agregar caso para cuando un vértice esté en el origen 
+        # No pueden estar repetidos los vértices!
+    
+    TL =  np.array( (
+        [ 0. , 0. , 0. ] , 
+        [ 1. , 0. , 0. ] , 
+        [ 0. , 1. , 0. ]
+             ) )
+    
+    A = np.dot( np.transpose(TL) , np.linalg.inv(V) )
+    
+    return A
+
+def linear_weights( x , A):
+    Xi , eta , _ = np.dot( A , x )
+    return Xi , eta
+
+def int_value( Xi , eta , soln , order ):
+    
+    w_i = N_values( Xi , eta , order)
+    s_i = np.sum(w_i * soln)
+    
+    return s_i
+
+def evaluation_points_and_weights(v1,v2,v3 , N):
     
     quad_values = quadratureRule_fine(N)
-    
-    f1 , f2 , f3 = face[0]-1 , face[1]-1 , face[2]-1
-    v1 , v2 , v3 = vert_array[f1] , vert_array[f2] , vert_array[f3]
     
     A = 0.5*numpy.linalg.norm( numpy.cross(v2-v1 , v3-v1) )
 
@@ -20,29 +80,102 @@ def Gauss_Quadrature(face , face_array, vert_array, func, N ):
     X_K = numpy.empty((0,3))
     for row in X.reshape(-1,3):
         X_K = numpy.vstack((X_K, numpy.dot(row,(v1,v2,v3)  ))  )
+    
+    
+    return X_K , W
 
-    values = func(X_K.transpose()).real
-
-    Int = numpy.sum(values[0]*W) * A
-      
-    return Int
-
-def Int_Over_Gamma(face_array , vert_array , func , N):
+    
+def Gauss_quadrature_i( face , face_array , vert_array , soln , order , N):
     '''
-    Integrates over all the boundary explicit defined by face_array and vert_array. Calculates
-    the integral element by element.
-    face_array  : Position in vert_array of every vertices of each face
-    vert_array  : Array containing all vertex
-    func        : Python Function
-    N           : Number of points for Gauss Quadrature
+    Interpolates the value for a given x in a triangle from 3 vertices and their solution.
     '''
     
-    estimated_values = numpy.empty((0,1))
+    f1 , f2 , f3 = face[0]-1 , face[1]-1 , face[2]-1
+    v1 , v2 , v3 = vert_array[f1] , vert_array[f2] , vert_array[f3]
+    s1 , s2 , s3 = soln[f1]       , soln[f2]       , soln[f3]
+    s = np.array((s1,s2,s3))
+    
+    A = 0.5*numpy.linalg.norm( numpy.cross(v2-v1 , v3-v1) )
+       
+    
+    X_K , W = evaluation_points_and_weights( v1 , v2 , v3 , N )
+    
+    LT_Matr = matrix_lineal_transform( v1 , v2 , v3 )
+    
+    value = 0.
+    
+    for x in X_K:    
+        
+        Xi , eta = linear_weights( x , LT_Matr)
+        
+        value = value + int_value(Xi , eta , s , order)
+    
+    return value*A
 
-    for face in face_array:
-        estimated_values = numpy.vstack((estimated_values,Gauss_Quadrature(face , face_array,
-                                                                      vert_array, func, N )))
-    return estimated_values
+
+def func_product_i( face , face_array , vert_array , soln1 , order1 , soln2 , order2 , N ):
+    '''
+    Calculates via Gauss quadrature integrals like int_Gamma soln1(x) * soln2(x) dx 
+    '''
+    
+    f1 , f2 , f3 = face[0]-1 , face[1]-1 , face[2]-1
+    v1 , v2 , v3 = vert_array[f1] , vert_array[f2] , vert_array[f3]
+        
+    # If using space DP-0 the information is saved in the same order than faces are.
+    if order1 == 0:
+        
+        c=0
+        for f in face_array:
+            if (face == f).all():
+                break
+            c+=1 
+        
+        s1 = soln1[c]
+        
+    if order2 == 0:
+        
+        c=0
+        for f in face_array:
+            if (face == f).all():
+                break
+            c+=1 
+        
+        s2 = soln2[c]
+        
+    # If using space P-1 the information is saved in the same order than vertex are.
+    # Let's pray for this....
+    
+    if order1 == 1:
+        
+        s11 , s12 , s13 = soln1[f1]       , soln1[f2]       , soln1[f3]
+        
+        s1 = np.array((s11,s12,s13))
+    
+    if order2 == 1:
+        
+        s21 , s22 , s23 = soln2[f1]       , soln2[f2]       , soln2[f3]
+        
+        s2 = np.array((s21,s22,s23))
+    
+    A = 0.5*numpy.linalg.norm( numpy.cross(v2-v1 , v3-v1) )
+       
+    
+    X_K , W = evaluation_points_and_weights( v1 , v2 , v3 , N )
+    
+    LT_Matr = matrix_lineal_transform( v1 , v2 , v3 )
+    
+    value = 0.
+    
+    for x in X_K:    
+        
+        Xi , eta = linear_weights( x , LT_Matr)
+        
+        value = value + int_value(Xi , eta , s1 , order1) * int_value(Xi , eta , s2 , order2)
+    
+    return value*A
+
+# --------------------- FROM PYBGE -------------------
+
 
 
 def quadratureRule_fine(K):
