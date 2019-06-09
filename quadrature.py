@@ -1,9 +1,34 @@
 
 """
 It contains the functions to compute the fine Gaussian quadrature and the
-weights and gauss points for the regular Gauss quadrature.
+wights and gauss points for the regular Gauss quadrature.
 """
-import numpy
+import numpy as np
+
+def unpack_info( face , face_array, vert_array , soln , space , order):
+    
+    
+    f1 , f2 , f3 = face[0]-1 , face[1]-1 , face[2]-1
+    
+    if space == 'DP' and order == 0:
+        
+        fc = 0
+        for f in face_array:
+            if (f==np.array((f1+1,f2+1,f3+1)).astype(int)).all():
+                break
+            fc += 1
+
+        return soln.coefficients[fc]
+    
+    elif space == 'P' and order ==1:
+        
+        s1 ,s2 , s3 = soln.coefficients[f1] , soln.coefficients[f2] , soln.coefficients[f3]
+        
+        return np.array((s1,s2,s3))
+    
+    else:
+        print('Space not ready yet.')
+        return None
 
 def N_values( Xi , eta , order):
     '''
@@ -14,6 +39,8 @@ def N_values( Xi , eta , order):
         N1 = 1. - Xi - eta
         N2 = Xi
         N3 = eta
+        
+        #print(N1,N2,N3)
 
         return N1 , N2 , N3
 
@@ -43,11 +70,9 @@ def matrix_lineal_transform( v1 , v2 , v3 ):
     
     V =   np.transpose( np.array( ( v1 , v2 , v3) ) )
     
-    if numpy.linalg.det(V) == 0:
+    if np.linalg.det(V) == 0:
         print('Zero matrix encountered!')
         
-        # Agregar caso para cuando un vértice esté en el origen 
-        # No pueden estar repetidos los vértices!
     
     TL =  np.array( (
         [ 0. , 0. , 0. ] , 
@@ -64,115 +89,95 @@ def linear_weights( x , A):
     return Xi , eta
 
 def int_value( Xi , eta , soln , order ):
-    
+    '''
+    Interpolates the values using weiths and solution
+    s(x) = sum N_i (xi,eta) * s_i
+    '''
     w_i = N_values( Xi , eta , order)
     s_i = np.sum(w_i * soln)
     
     return s_i
 
+def local_f( x , A , s1s2s3 , order):
+    '''
+    Estimates value for a given solution in vertices.
+    x     : evaluated point
+    A     : Asociated LT matrix
+    s1s2s3: Sorted solution for v1,v2 and v3
+    order : Order of the space solution
+    '''
+    if order == 0:
+        value_in_x = s1s2s3
+        
+    elif order == 1:
+        xi , eta = linear_weights( x, A)
+
+        N = N_values(xi,eta,order)
+
+        value_in_x = np.sum( N * s1s2s3)
+    else:
+        print('Plugin not ready!')
+        value_in_x = 0
+    return value_in_x
+
 def evaluation_points_and_weights(v1,v2,v3 , N):
     
     quad_values = quadratureRule_fine(N)
     
-    A = 0.5*numpy.linalg.norm( numpy.cross(v2-v1 , v3-v1) )
-
     X , W = quad_values
-    X_K = numpy.empty((0,3))
+    X_K = np.empty((0,3))
     for row in X.reshape(-1,3):
-        X_K = numpy.vstack((X_K, numpy.dot(row,(v1,v2,v3)  ))  )
+        X_K = np.vstack((X_K, np.dot(row,(v1,v2,v3)  ))  )
     
     
     return X_K , W
 
-    
-def Gauss_quadrature_i( face , face_array , vert_array , soln , order , N):
-    '''
-    Interpolates the value for a given x in a triangle from 3 vertices and their solution.
-    '''
-    
-    f1 , f2 , f3 = face[0]-1 , face[1]-1 , face[2]-1
-    v1 , v2 , v3 = vert_array[f1] , vert_array[f2] , vert_array[f3]
-    s1 , s2 , s3 = soln[f1]       , soln[f2]       , soln[f3]
-    s = np.array((s1,s2,s3))
-    
-    A = 0.5*numpy.linalg.norm( numpy.cross(v2-v1 , v3-v1) )
-       
-    
-    X_K , W = evaluation_points_and_weights( v1 , v2 , v3 , N )
-    
-    LT_Matr = matrix_lineal_transform( v1 , v2 , v3 )
-    
-    value = 0.
-    
-    for x in X_K:    
-        
-        Xi , eta = linear_weights( x , LT_Matr)
-        
-        value = value + int_value(Xi , eta , s , order)
-    
-    return value*A
 
 
-def func_product_i( face , face_array , vert_array , soln1 , order1 , soln2 , order2 , N ):
+def int_calc_i( face , face_array , vert_array , soln1 , space1 , order1 , soln2 , space2 , order2):
     '''
-    Calculates via Gauss quadrature integrals like int_Gamma soln1(x) * soln2(x) dx 
+    Main function to estimate boundary integrals by triangle
+    face   : face from face_array
+    soln1  : BEMPP object from gmre
+    space1 : Solution space for soln1
+    order1 : Order of the polynomial used for space1
     '''
-    
-    f1 , f2 , f3 = face[0]-1 , face[1]-1 , face[2]-1
+    f1 , f2 , f3 = face -1
     v1 , v2 , v3 = vert_array[f1] , vert_array[f2] , vert_array[f3]
-        
-    # If using space DP-0 the information is saved in the same order than faces are.
-    if order1 == 0:
-        
-        c=0
-        for f in face_array:
-            if (face == f).all():
-                break
-            c+=1 
-        
-        s1 = soln1[c]
-        
-    if order2 == 0:
-        
-        c=0
-        for f in face_array:
-            if (face == f).all():
-                break
-            c+=1 
-        
-        s2 = soln2[c]
-        
-    # If using space P-1 the information is saved in the same order than vertex are.
-    # Let's pray for this....
+
+    s1 = unpack_info( face , face_array, vert_array , soln1 , space1 , order1)
     
-    if order1 == 1:
+    s2 = unpack_info( face , face_array, vert_array , soln2 , space2 , order2)
+
+    X_K , W_K = evaluation_points_and_weights(v1,v2,v3 , 79)
+
+    Area = 0.5 * np.linalg.norm( np.cross( v2 - v1 , v3 - v1 ) )
+
+    if order1>0 or order2>0:
+        A = matrix_lineal_transform(v1,v2,v3)
+    
+    integral_i = 0
+    
+    if order1==0 and order2 ==0:
         
-        s11 , s12 , s13 = soln1[f1]       , soln1[f2]       , soln1[f3]
+        A = None
         
-        s1 = np.array((s11,s12,s13))
-    
-    if order2 == 1:
+        integral_i += s1*s2*Area
         
-        s21 , s22 , s23 = soln2[f1]       , soln2[f2]       , soln2[f3]
+        return integral_i
+
+    c = 0
+    for xk in X_K:
+
+        f_l1  = local_f( xk , A , s1 , order1)
+        f_l2  = local_f( xk , A , s2 , order2)
+
+        integral_i += f_l1*f_l2 * W_K[c]
         
-        s2 = np.array((s21,s22,s23))
-    
-    A = 0.5*numpy.linalg.norm( numpy.cross(v2-v1 , v3-v1) )
-       
-    
-    X_K , W = evaluation_points_and_weights( v1 , v2 , v3 , N )
-    
-    LT_Matr = matrix_lineal_transform( v1 , v2 , v3 )
-    
-    value = 0.
-    
-    for x in X_K:    
         
-        Xi , eta = linear_weights( x , LT_Matr)
+        c+=1
         
-        value = value + int_value(Xi , eta , s1 , order1) * int_value(Xi , eta , s2 , order2)
-    
-    return value*A
+    return integral_i.real*Area
 
 # --------------------- FROM PYBGE -------------------
 
@@ -193,8 +198,8 @@ def quadratureRule_fine(K):
     # yapf: disable
     # 1 Gauss point
     if K==1:
-        X = numpy.array([1./3., 1./3., 1./3.])
-        W = numpy.array([1.])
+        X = np.array([1./3., 1./3., 1./3.])
+        W = np.array([1.])
 
     # 7 Gauss points
     if K==7:
@@ -206,10 +211,10 @@ def quadratureRule_fine(K):
         wb = 0.132394152788506
         wc = 0.125939180544827
 
-        X = numpy.array([a,a,a,
+        X = np.array([a,a,a,
                        b1,b2,b2,b2,b1,b2,b2,b2,b1,
                        c1,c2,c2,c2,c1,c2,c2,c2,c1])
-        W = numpy.array([wa,wb,wb,wb,wc,wc,wc])
+        W = np.array([wa,wb,wb,wb,wc,wc,wc])
 
     # 13 Gauss points
     if K==13:
@@ -222,11 +227,11 @@ def quadratureRule_fine(K):
         wc = 0.053347235608838
         wd = 0.077113760890257
 
-        X = numpy.array([a,a,a,
+        X = np.array([a,a,a,
                        b1,b2,b2,b2,b1,b2,b2,b2,b1,
                        c1,c2,c2,c2,c1,c2,c2,c2,c1,
                        d1,d2,d3,d1,d3,d2,d2,d1,d3,d2,d3,d1,d3,d1,d2,d3,d2,d1])
-        W = numpy.array([wa,
+        W = np.array([wa,
                         wb,wb,wb,
                         wc,wc,wc,
                         wd,wd,wd,wd,wd,wd])
@@ -244,12 +249,12 @@ def quadratureRule_fine(K):
         wd = 0.032458497623198
         we = 0.027230314174435
 
-        X = numpy.array([a,a,a,
+        X = np.array([a,a,a,
                         b1,b2,b2,b2,b1,b2,b2,b2,b1,
                         c1,c2,c2,c2,c1,c2,c2,c2,c1,
                         d1,d2,d2,d2,d1,d2,d2,d2,d1,
                         e1,e2,e3,e1,e3,e2,e2,e1,e3,e2,e3,e1,e3,e1,e2,e3,e2,e1])
-        W = numpy.array([wa,
+        W = np.array([wa,
                         wb,wb,wb,
                         wc,wc,wc,
                         wd,wd,wd,
@@ -271,13 +276,13 @@ def quadratureRule_fine(K):
         we = 0.025577675658698
         wf = 0.043283539377289
 
-        X = numpy.array([a,a,a,
+        X = np.array([a,a,a,
                         b1,b2,b2,b2,b1,b2,b2,b2,b1,
                         c1,c2,c2,c2,c1,c2,c2,c2,c1,
                         d1,d2,d2,d2,d1,d2,d2,d2,d1,
                         e1,e2,e2,e2,e1,e2,e2,e2,e1,
                         f1,f2,f3,f1,f3,f2,f2,f1,f3,f2,f3,f1,f3,f1,f2,f3,f2,f1])
-        W = numpy.array([wa,
+        W = np.array([wa,
                         wb,wb,wb,
                         wc,wc,wc,
                         wd,wd,wd,
@@ -300,13 +305,13 @@ def quadratureRule_fine(K):
         we = 0.028327242531057
         wf = 0.009421666963733
 
-        X = numpy.array([a,a,a,
+        X = np.array([a,a,a,
                         b1,b2,b2,b2,b1,b2,b2,b2,b1,
                         c1,c2,c2,c2,c1,c2,c2,c2,c1,
                         d1,d2,d3,d1,d3,d2,d2,d1,d3,d2,d3,d1,d3,d1,d2,d3,d2,d1,
                         e1,e2,e3,e1,e3,e2,e2,e1,e3,e2,e3,e1,e3,e1,e2,e3,e2,e1,
                         f1,f2,f3,f1,f3,f2,f2,f1,f3,f2,f3,f1,f3,f1,f2,f3,f2,f1])
-        W = numpy.array([wa,
+        W = np.array([wa,
                         wb,wb,wb,
                         wc,wc,wc,
                         wd,wd,wd,wd,wd,wd,
@@ -337,7 +342,7 @@ def quadratureRule_fine(K):
         wi = 0.017401463303822
         wj = 0.015521786839045
 
-        X = numpy.array([a,a,a,
+        X = np.array([a,a,a,
                          b1,b2,b2,b2,b1,b2,b2,b2,b1,
                          c1,c2,c2,c2,c1,c2,c2,c2,c1,
                          d1,d2,d2,d2,d1,d2,d2,d2,d1,
@@ -347,7 +352,7 @@ def quadratureRule_fine(K):
                          h1,h2,h3,h1,h3,h2,h2,h1,h3,h2,h3,h1,h3,h1,h2,h3,h2,h1,
                          i1,i2,i3,i1,i3,i2,i2,i1,i3,i2,i3,i1,i3,i1,i2,i3,i2,i1,
                          j1,j2,j3,j1,j3,j2,j2,j1,j3,j2,j3,j1,j3,j1,j2,j3,j2,j1])
-        W = numpy.array([wa,
+        W = np.array([wa,
                          wb,wb,wb,
                          wc,wc,wc,
                          wd,wd,wd,
@@ -384,7 +389,7 @@ def quadratureRule_fine(K):
         wj = 0.021505319847731
         wk = 0.007673942631049
 
-        X = numpy.array([a1,a2,a2,a2,a1,a2,a2,a2,a1,
+        X = np.array([a1,a2,a2,a2,a1,a2,a2,a2,a1,
                          b1,b2,b2,b2,b1,b2,b2,b2,b1,
                          c1,c2,c2,c2,c1,c2,c2,c2,c1,
                          d1,d2,d2,d2,d1,d2,d2,d2,d1,
@@ -395,7 +400,7 @@ def quadratureRule_fine(K):
                          i1,i2,i3,i1,i3,i2,i2,i1,i3,i2,i3,i1,i3,i1,i2,i3,i2,i1,
                          j1,j2,j3,j1,j3,j2,j2,j1,j3,j2,j3,j1,j3,j1,j2,j3,j2,j1,
                          k1,k2,k3,k1,k3,k2,k2,k1,k3,k2,k3,k1,k3,k1,k2,k3,k2,k1])
-        W = numpy.array([wa,wa,wa,
+        W = np.array([wa,wa,wa,
                          wb,wb,wb,
                          wc,wc,wc,
                          wd,wd,wd,
@@ -437,7 +442,7 @@ def quadratureRule_fine(K):
         wl = 0.019084792755899
         wm = 0.006850054546542
 
-        X = numpy.array([a,a,a,
+        X = np.array([a,a,a,
                          b1,b2,b2,b2,b1,b2,b2,b2,b1,
                          c1,c2,c2,c2,c1,c2,c2,c2,c1,
                          d1,d2,d2,d2,d1,d2,d2,d2,d1,
@@ -450,7 +455,7 @@ def quadratureRule_fine(K):
                          k1,k2,k3,k1,k3,k2,k2,k1,k3,k2,k3,k1,k3,k1,k2,k3,k2,k1,
                          l1,l2,l3,l1,l3,l2,l2,l1,l3,l2,l3,l1,l3,l1,l2,l3,l2,l1,
                          m1,m2,m3,m1,m3,m2,m2,m1,m3,m2,m3,m1,m3,m1,m2,m3,m2,m1])
-        W = numpy.array([wa,
+        W = np.array([wa,
                          wb,wb,wb,
                          wc,wc,wc,
                          wd,wd,wd,
@@ -498,7 +503,7 @@ def quadratureRule_fine(K):
         wn = 0.018292796770025
         wo = 0.006665632004165
 
-        X = numpy.array([a,a,a,
+        X = np.array([a,a,a,
                          b1,b2,b2,b2,b1,b2,b2,b2,b1,
                          c1,c2,c2,c2,c1,c2,c2,c2,c1,
                          d1,d2,d2,d2,d1,d2,d2,d2,d1,
@@ -513,7 +518,7 @@ def quadratureRule_fine(K):
                          m1,m2,m3,m1,m3,m2,m2,m1,m3,m2,m3,m1,m3,m1,m2,m3,m2,m1,
                          n1,n2,n3,n1,n3,n2,n2,n1,n3,n2,n3,n1,n3,n1,n2,n3,n2,n1,
                          o1,o2,o3,o1,o3,o2,o2,o1,o3,o2,o3,o1,o3,o1,o2,o3,o2,o1])
-        W = numpy.array([wa,
+        W = np.array([wa,
                          wb,wb,wb,
                          wc,wc,wc,
                          wd,wd,wd,
@@ -571,7 +576,7 @@ def quadratureRule_fine(K):
         wr = 0.010112684927462
         ws = 0.003573909385950
 
-        X = numpy.array([a,a,a,
+        X = np.array([a,a,a,
                          b1,b2,b2,b2,b1,b2,b2,b2,b1,
                          c1,c2,c2,c2,c1,c2,c2,c2,c1,
                          d1,d2,d2,d2,d1,d2,d2,d2,d1,
@@ -591,7 +596,7 @@ def quadratureRule_fine(K):
                          r1,r2,r3,r1,r3,r2,r2,r1,r3,r2,r3,r1,r3,r1,r2,r3,r2,r1,
                          s1,s2,s3,s1,s3,s2,s2,s1,s3,s2,s3,s1,s3,s1,s2,s3,s2,s1])
 
-        W = numpy.array([wa,
+        W = np.array([wa,
                          wb,wb,wb,
                          wc,wc,wc,
                          wd,wd,wd,
@@ -626,7 +631,7 @@ def getWeights(K):
     """
 
     # yapf: disable
-    w = numpy.zeros(K)
+    w = np.zeros(K)
     if K==1:
         w[0] = 1.
     if K==3:
@@ -649,3 +654,40 @@ def getWeights(K):
 
     return w
 # yapf: enable
+
+def edge_counter(face_array):
+    '''
+    Counts non repited combinations for every triangle edge using their index position in vert_array.
+    '''
+    aristas = np.empty((0,2))
+
+    for face in face_array:
+
+        ar1 = np.array((face[0],face[1]))
+        ar2 = np.array((face[0],face[2]))
+        ar3 = np.array((face[1],face[2]))
+
+        if len(aristas)==0:
+            aristas = np.vstack((aristas , ar1))
+
+        ar1_not_in_aristas , ar2_not_in_aristas , ar3_not_in_aristas = True , True , True
+
+        for j in aristas:
+            if (ar1 == j).all() or (ar1[::-1] == j ).all():
+                ar1_not_in_aristas = False
+
+            if (ar2 == j).all() or (ar2[::-1] == j ).all():
+                ar2_not_in_aristas = False
+
+            if (ar3 == j).all() or (ar3[::-1] == j ).all():
+                ar3_not_in_aristas = False
+
+        if ar1_not_in_aristas:
+            aristas = np.vstack((aristas , ar1))
+        if ar2_not_in_aristas:
+            aristas = np.vstack((aristas , ar2))
+        if ar3_not_in_aristas:
+            aristas = np.vstack((aristas , ar3))
+        
+        
+    return len(aristas.astype(int))
