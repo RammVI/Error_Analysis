@@ -18,11 +18,11 @@ def unpack_info( face , face_array, vert_array , soln , space , order):
                 break
             fc += 1
 
-        return soln.coefficients[fc]
+        return soln.coefficients.real[fc]
     
     elif space == 'P' and order ==1:
         
-        s1 ,s2 , s3 = soln.coefficients[f1] , soln.coefficients[f2] , soln.coefficients[f3]
+        s1 ,s2 , s3 = soln.coefficients.real[f1] , soln.coefficients.real[f2] , soln.coefficients.real[f3]
         
         return np.array((s1,s2,s3))
     
@@ -65,7 +65,7 @@ def matrix_lineal_transform( v1 , v2 , v3 ):
                          | (0 , 0 , 0 ) |           |\
       [A] | v1,v2,v3 | = | (1 , 0 , 0 ) |           | \   <---- Transformed triangle
                          | (0 , 1 , 0 ) |     (0,0) |__\____ Xi
-                                                  (1,0) 
+                                                       (1,0) 
     '''
     
     V =   np.transpose( np.array( ( v1 , v2 , v3) ) )
@@ -85,7 +85,8 @@ def matrix_lineal_transform( v1 , v2 , v3 ):
     return A
 
 def linear_weights( x , A):
-    Xi , eta , _ = np.dot( A , x )
+    eta , Xi , _ = np.dot( A , x )
+    #Xi , eta , _ = np.dot( A , x )
     return Xi , eta
 
 def int_value( Xi , eta , soln , order ):
@@ -134,13 +135,14 @@ def evaluation_points_and_weights(v1,v2,v3 , N):
 
 
 
-def int_calc_i( face , face_array , vert_array , soln1 , space1 , order1 , soln2 , space2 , order2):
+def int_calc_i( face , face_array , vert_array , soln1 , space1 , order1 , soln2 , space2 , order2 , N):
     '''
     Main function to estimate boundary integrals by triangle
     face   : face from face_array
-    soln1  : BEMPP object from gmre
+    soln1  : BEMPP object from gmres
     space1 : Solution space for soln1
     order1 : Order of the polynomial used for space1
+    N      : Number of points used for Gauss integration
     '''
     f1 , f2 , f3 = face -1
     v1 , v2 , v3 = vert_array[f1] , vert_array[f2] , vert_array[f3]
@@ -149,7 +151,7 @@ def int_calc_i( face , face_array , vert_array , soln1 , space1 , order1 , soln2
     
     s2 = unpack_info( face , face_array, vert_array , soln2 , space2 , order2)
 
-    X_K , W_K = evaluation_points_and_weights(v1,v2,v3 , 79)
+    X_K , W_K = evaluation_points_and_weights(v1,v2,v3 , N)
 
     Area = 0.5 * np.linalg.norm( np.cross( v2 - v1 , v3 - v1 ) )
 
@@ -536,7 +538,7 @@ def quadratureRule_fine(K):
 
     # 79 Gauss points
     if K==79:
-        a  = 1/3.
+        a  = 1./3.
         b1 = -0.001900928704400; b2 = 0.500950464352200
         c1 = 0.023574084130543; c2 = 0.488212957934729
         d1 = 0.089726636099435; d2 = 0.455136681950283
