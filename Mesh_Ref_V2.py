@@ -329,8 +329,6 @@ def funcion(face_array , vert_array , soln , percentaje ):
             
             
             _ , common_verts = coincidence_between_1D_arrays( adj , face_array[face_num] , 2 )
-            #print('common_verts = ',common_verts)
-            
             
             v1 , v2 = common_verts #- 1        # v1 y v2 are not absolute! - Starts from 1
             
@@ -350,8 +348,6 @@ def funcion(face_array , vert_array , soln , percentaje ):
             
             new_face_array[face_num] = np.zeros( ( 3 , ) )  
             
-            print(np.array( (v1 , v3 , new_vert_pos+1 ) ), np.array( (v2 , v3 , new_vert_pos+1 )) )
-            
             new_face_array = np.vstack(( new_face_array , np.array( (v1 , v3 , new_vert_pos+1 ) ) ))
             new_face_array = np.vstack(( new_face_array , np.array( (v2 , v3 , new_vert_pos+1 ) ) ))    
             
@@ -366,8 +362,8 @@ def funcion(face_array , vert_array , soln , percentaje ):
             v23 = newvert( v2 , v3 )
             
             ck = 0 
-            v12pos , v13pos , v23pos = search_multiple_positions_in_array( np.array((v12,v13,v23)),new_vert_array)
-            
+            v12pos , v13pos , v23pos = search_multiple_positions_in_array( np.array((v12,v13,v23)),new_vert_array)[:,0]
+
             if v12pos == -1:
                 
                 v12pos = len(new_vert_array)
@@ -407,7 +403,6 @@ def funcion(face_array , vert_array , soln , percentaje ):
             
         if not (face.astype(int) == (0,0,0)).all(): #np.zeros( ( 3 , 1) )).all():
             
-            print(face)
             aux_face_array = np.vstack( (aux_face_array , face.astype(int) ) )
             
         face_num+=1  
