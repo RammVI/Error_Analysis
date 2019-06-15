@@ -7,3 +7,5 @@ Error_2.0.vtk is the error estimation in the solvation energy by element, should
 
 Grid_Maker.py is a callable file to create the mesh. MSMS and NanoShaper allowed
 
+quadrature.py contains functions to estimate boundary integrals
+
