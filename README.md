@@ -9,3 +9,6 @@ Grid_Maker.py is a callable file to create the mesh. MSMS and NanoShaper allowed
 
 quadrature.py contains functions to estimate boundary integrals
 
+constants.py contains some info to build the mesh and physical constants
+
+
