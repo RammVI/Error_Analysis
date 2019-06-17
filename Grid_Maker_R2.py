@@ -149,7 +149,7 @@ def NanoShaper_config(xyzr_file , dens , probe_radius):
               ,  'Save_PovRay = false'                     )
     return t1
 
-def xyzr_to_msh(mol_name , dens , probe_radius , stern_thickness , min_area , Mallador = 'NanoShaper',
+def xyzr_to_msh(mol_name , dens , probe_radius , stern_thickness , min_area , Mallador = 'MSMS',
                suffix = ''):
     '''
     Makes msh (mesh format for BEMPP) from xyzr file
@@ -334,6 +334,7 @@ def factory_fun_msh( mol_directory , mol_name , min_area , dens , Mallador , suf
     grid = factory.finalize()
     
     export_file = os.path.join(mol_directory , mol_name +'_'+str(dens)+ suffix +'.msh' )
+    print(export_file)
     bempp.api.export(grid=grid, file_name=export_file) 
     
     return grid
@@ -443,6 +444,8 @@ def Grid_loader(mol_name , mesh_density , suffix ):
     path = os.path.join('Molecule',mol_name)
     grid_name_File =  os.path.join(path,mol_name + '_'+str(mesh_density)+suffix+'.msh')
     
+    print(grid_name_File)
+    
     if not os.path.isfile(grid_name_File):
         
         pqr_directory = os.path.join('Molecule',mol_name, mol_name+'.pqr' )
@@ -451,8 +454,8 @@ def Grid_loader(mol_name , mesh_density , suffix ):
             pdb_to_pqr(mol_name , stern_thickness , method = 'amber' )
             
         pqr_to_xyzr(mol_name , stern_thickness=0 , method = 'amber' )
-        xyzr_to_msh(mol_name , mesh_density , probe_radius=1.4 , stern_thickness=0 , min_area=0
-                    , Mallador = 'NanoShaper', suffix = suffix )
+        xyzr_to_msh(mol_name , mesh_density , 1.4 , 0 , 0
+                    , Mallador = 'MSMS', suffix = suffix )
         
     print('Working on '+grid_name_File+ '.' )
     grid = bempp.api.import_grid(grid_name_File)
