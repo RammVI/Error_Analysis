@@ -451,8 +451,8 @@ def Grid_loader(mol_name , mesh_density , suffix ):
             pdb_to_pqr(mol_name , stern_thickness , method = 'amber' )
             
         pqr_to_xyzr(mol_name , stern_thickness=0 , method = 'amber' )
-        xyzr_to_msh(mol_name , mesh_density , probe_radius , stern_thickness , min_area , Mallador = 'NanoShaper',
-               suffix = suffix )
+        xyzr_to_msh(mol_name , mesh_density , probe_radius=1.4 , stern_thickness=0 , min_area=0
+                    , Mallador = 'NanoShaper', suffix = suffix )
         
     print('Working on '+grid_name_File+ '.' )
     grid = bempp.api.import_grid(grid_name_File)
