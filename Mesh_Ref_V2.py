@@ -7,6 +7,9 @@
 #      /  \      Results   | \/__\/ |
 #     /    \       in      | /\  /\ |
 #    /______\              |/__\/__\|
+#                            \  |  /
+#                              \|/
+#
 
 #     in the solvation energy.
 # 2. Adjacent triangles are split but half UNLESS:
