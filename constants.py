@@ -35,6 +35,8 @@ class mesh_info():
     phi_space , phi_order = 'P'  , 1
     u_space   , u_order   = 'DP' , 0
     
+    u_s_space , u_s_order = 'P'  , 1  # For More exact solvation calcs.
+    
 
     
 def run_pqr(mol_name):

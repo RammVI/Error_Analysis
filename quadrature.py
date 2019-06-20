@@ -71,7 +71,7 @@ def matrix_lineal_transform( v1 , v2 , v3 ):
     V =   np.transpose( np.array( ( v1 , v2 , v3) ) )
     
     if np.linalg.det(V) == 0:
-        print('Zero matrix encountered!')
+        print('No invertible matrix encountered!')
         
     
     TL =  np.array( (
@@ -155,6 +155,7 @@ def int_calc_i( face , face_array , vert_array , soln1 , space1 , order1 , soln2
 
     Area = 0.5 * np.linalg.norm( np.cross( v2 - v1 , v3 - v1 ) )
 
+        
     if order1>0 or order2>0:
         A = matrix_lineal_transform(v1,v2,v3)
     
