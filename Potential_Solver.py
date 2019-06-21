@@ -12,14 +12,7 @@ from constants import *
 
 from quadrature import *
 
-def Grid_loader(mol_name , mesh_density , suffix ):
-    
-    path = os.path.join('Molecule',mol_name)
-    grid_name_File =  os.path.join(path,mol_name + '_'+str(mesh_density)+suffix+'.msh')
-    print('Working on '+grid_name_File+ '.' )
-    grid = bempp.api.import_grid(grid_name_File)
-    
-    return grid
+
 
 def zero_i(x, n, domain_index, result):
     result[:] = 0
@@ -45,7 +38,7 @@ def harmonic_component(dirichl_space , neumann_space , dual_to_dir_s , u_s , du_
     dlp_in   = laplace.double_layer(dirichl_space, dirichl_space, dual_to_dir_s)
 
     # V_in du_s = (1/2+K_in)u_h = -(1/2+K_in)u_s (BC)
-    sol, info,it_count = bempp.api.linalg.gmres( slp_in, -(dlp_in+0.5*identity)*u_s , return_iteration_count=True, tol=1e-4)
+    sol, info,it_count = bempp.api.linalg.gmres( slp_in, -(dlp_in+0.5*identity)*u_s , return_iteration_count=True, tol=1e-8)
     print("The linear system for du_h was solved in {0} iterations".format(it_count))
 
 
@@ -109,7 +102,7 @@ def adjoint_equation( dirichl_space , neumann_space , dual_to_dir_s):
     P_GL = bempp.api.GridFunction(dirichl_space, fun=q_times_G_L)
     rs_r = [P_GL , zero]
 
-    sol_r, info,it_count = bempp.api.linalg.gmres( blocked, rs_r , return_iteration_count=True, tol=1e-4)
+    sol_r, info,it_count = bempp.api.linalg.gmres( blocked, rs_r , return_iteration_count=True, tol=1e-8)
     print("The linear system for phi was solved in {0} iterations".format(it_count))
     phi_r , dphi_r = sol_r
     
@@ -153,10 +146,11 @@ def S_Cooper_calc( face_array , vert_array , phi_r , dphi_r , U_Reac , dU_Reac ,
 
         c+=1
 
+    S_Cooper_i = Solv_Cooper
     S_Cooper = K*np.sum(Solv_Cooper )
     print('Cooper Solv = {0:10f} '.format(S_Cooper)) 
     
-    return S_Cooper
+    return S_Cooper , S_Cooper_i
 
 def S_Zeb_calc( face_array , vert_array , phi , dphi , u_s , du_s , N):
     
@@ -165,15 +159,15 @@ def S_Zeb_calc( face_array , vert_array , phi , dphi , u_s , du_s , N):
     for face in face_array:
 
         I1 = int_calc_i( face , face_array , vert_array , phi , mesh_info.phi_space 
-                        , mesh_info.phi_order , ep_m*(du_s) , mesh_info.u_space , mesh_info.u_order  , N)
+                        , mesh_info.phi_order , ep_m*(du_s) , mesh_info.u_s_space , mesh_info.u_s_order  , N)
         
-        I2 = int_calc_i( face , face_array , vert_array , ep_m * dphi , mesh_info.phi_space
-                         , mesh_info.phi_order , ep_m*(u_s) , mesh_info.u_space , mesh_info.u_order , N)
+        I2 = int_calc_i( face , face_array , vert_array ,  dphi , mesh_info.phi_space
+                         , mesh_info.phi_order , ep_m*(u_s) , mesh_info.u_s_space , mesh_info.u_s_order , N)
         Solv_Zeb[c] = I2-I1
 
         c+=1
-
+    Solv_Zeb_i = Solv_Zeb
     S_Zeb = K*np.sum(Solv_Zeb )
     print('Zeb Solv = {0:10f} '.format(S_Zeb)) 
     
-    return S_Zeb
+    return S_Zeb , Solv_Zeb_i
