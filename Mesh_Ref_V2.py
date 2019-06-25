@@ -1,4 +1,6 @@
 
+# 25-june-2019 17:45
+
 # Some rules about the mesh refinement:
 # 1. A percentaje of the faces must be refined and 4 new triangles are born
 #    where 3 new points are added in each edge center, and the input data is the residual
