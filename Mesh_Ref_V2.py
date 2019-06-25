@@ -7,9 +7,6 @@
 #      /  \      Results   | \/__\/ |
 #     /    \       in      | /\  /\ |
 #    /______\              |/__\/__\|
-#                            \  |  /
-#                              \|/
-#
 
 #     in the solvation energy.
 # 2. Adjacent triangles are split but half UNLESS:
@@ -27,14 +24,38 @@ def search_unique_position_in_array(array , main_array):
     '''
     -
     '''
-    position = -1
     
     c=0
+    array_is_contained = False
+    
     for sub_array in main_array:
-        if (sub_array == array).all():
+        
+        sub_array_counter = 0
+        
+        equality = True
+        for i in sub_array:
+            
+            if not isclose( array[sub_array_counter] , sub_array[sub_array_counter]  ):
+                equality = False
+                continue
+                
+            sub_array_counter+=1
+            
+        if equality:
+            array_is_contained = True
             break
         c+=1
-    return c
+        
+    if array_is_contained:
+        return c
+    
+    else: 
+        return -1
+    
+    
+    
+def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
+    return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
     
 def search_multiple_positions_in_array( arrays , main_array ):
     '''
@@ -59,6 +80,20 @@ def search_multiple_positions_in_array( arrays , main_array ):
             c+=1
         i+=1
     return positions
+
+def common_verts_between_2_triangles( face_1 , face_2 ):
+    '''
+    Returns the 2 common positions in face_1 and face_2
+    '''
+    common_verts = np.zeros( (2, ) )
+    c = 0    
+    for i in face_1:
+        for j in face_2:
+            if i==j and i not in common_verts:
+                common_verts[c] = i
+                c+=1
+                
+    return common_verts.astype(int)
         
 def text_to_list(mol_name , total_suffix , txt_format , info_type=float):
     '''
@@ -302,116 +337,120 @@ def final_status(face_array , soln , percentaje ):
         
     return aux_status
 
-def funcion(face_array , vert_array , soln , percentaje ):
+def mesh_refiner(face_array , vert_array , soln , percentaje ):
     '''
-    Does the mesh refinement, starting by triangles having status 1.
+    Refines the mesh
     '''
+    
     status = final_status(face_array , soln , percentaje )
     
-    new_face_array = face_array.copy().astype(int)
+    new_faces_array = np.empty((0,3))
     new_vert_array = vert_array.copy()
     
-    face_num = 0
-    for s in status:
-        # 1 values
-        if s == 1:
-            T1 , T2 , T3 = adjacent_faces(face_num , face_array , return_face_number=True)
+    aux_face_array = face_array.copy()
+    
+    face_counter = 0
+    
+    for face in face_array:
+        
+        
+        if status[face_counter] == 1:
+             
+            adj_1_pos , adj_2_pos , adj_3_pos = adjacent_faces( face_counter , face_array , True )
             
-            # T_i is absolute! ------ starts from 0
+            #Search for the adjacent face that has status 4
             
-            if status[T1] == 4:
-                adj = face_array[T1]
-            elif status[T2] == 4:
-                adj = face_array[T2]
-            elif status[T3] == 4:
-                adj = face_array[T3]
-            else:
-                print('Fatal error encountered - probably a face is missing')
-                return None
-            
-            
-            
-            _ , common_verts = coincidence_between_1D_arrays( adj , face_array[face_num] , 2 )
-            
-            v1 , v2 = common_verts #- 1        # v1 y v2 are not absolute! - Starts from 1
-            
-            for v in face_array[face_num]:
-                if v != v1 and v!=v2:
-                    v3 = v
-                    
-            
-            new_vert = newvert( vert_array[v1-1] , vert_array[v2-1] ) #0.5*(vert_array[v1]+vert_array[v2])            
-            
-            new_vert_pos = search_unique_position_in_array(new_vert , new_vert_array )
-            
-            if new_vert_pos == -1:
+            if status[adj_1_pos] == 4:
+                ady_face = face_array[adj_1_pos]
                 
-                new_vert_array = np.vstack( ( new_vert_array , new_vert ) )    
-                new_vert_pos = len(new_vert_array) 
+            elif status[adj_2_pos] == 4:
+                ady_face = face_array[adj_2_pos]
+                
+            elif status[adj_3_pos] == 4:
+                ady_face = face_array[adj_3_pos]
+                
+            # Now search for the 2 common vertex
+            v1_pos , v2_pos = common_verts_between_2_triangles( ady_face , face ) - 1 
+            #v1_pos and v2_pos have an absolute value - starts from 0
             
-            new_face_array[face_num] = np.zeros( ( 3 , ) )  
+            v1 , v2 = vert_array[v1_pos] , vert_array[v2_pos]
             
-            new_face_array = np.vstack(( new_face_array , np.array( (v1 , v3 , new_vert_pos+1 ) ) ))
-            new_face_array = np.vstack(( new_face_array , np.array( (v2 , v3 , new_vert_pos+1 ) ) ))    
+            for v3_pos in face-1:
+                if v3_pos!=v1_pos and v3_pos!=v2_pos:
+                    break      
             
-        # 4 values
-        if s == 4:
+            new_vert = newvert( v1 , v2 )
             
-            f1 , f2 , f3 = face_array[face_num]-1   # f is absolute!  - Starts from 0
+            # Now let's check if this new vert is already in new_vert_array
+            test_position = search_unique_position_in_array(new_vert , new_vert_array )
+            
+            if test_position == -1:
+                new_vert_array = np.vstack( (new_vert_array , new_vert ) )
+                test_position = len(new_vert_array)-1  #test_position is also absolute
+            
+            new_face_1 = np.array( (v1_pos , test_position ,  v3_pos )) +1
+            new_face_2 = np.array( (v2_pos , test_position ,  v3_pos )) +1
+            
+            new_faces_array = np.vstack((new_faces_array , new_face_1 ))
+            new_faces_array = np.vstack((new_faces_array , new_face_2 ))
+            
+            # Also we have to delete the face, so let's assign the value (0,0,0) the deleted face
+            aux_face_array[face_counter] = np.array((0,0,0))
+                
+        if status[face_counter] == 4:
+            
+            f1 , f2 , f3 = face_array[face_counter] - 1  # Absolute position in vert_array
             v1 , v2 , v3 = vert_array[f1] , vert_array[f2] , vert_array[f3]
             
-            v12 = newvert( v1 , v2 )
-            v13 = newvert( v1 , v3 )
-            v23 = newvert( v2 , v3 )
+            new_vert_12 = newvert( v1 , v2 )
+            new_vert_13 = newvert( v1 , v3 )
+            new_vert_23 = newvert( v2 , v3 )
             
-            ck = 0 
-            v12pos , v13pos , v23pos = search_multiple_positions_in_array( np.array((v12,v13,v23)),new_vert_array)[:,0]
+            # Let's check like in status == 1 if the new_vert_ij is in new_vert_array:
+            
+            pos = np.array((-1,-1,-1))
+            c = 0
+            for vert in (new_vert_12 , new_vert_13 , new_vert_23):
+                test_position = search_unique_position_in_array( vert , new_vert_array )
+                if test_position == -1:
+                    new_vert_array = np.vstack( (new_vert_array , vert ) )
+                    test_position = len(new_vert_array) - 1 # Absolute value!
+                    
+                pos[c] = test_position
+                c+=1
+            
+            v12_pos , v13_pos , v23_pos = pos
+            
+            new_face_1 = np.array( ( f1     , v12_pos , v13_pos ) ) + 1 
+            new_face_2 = np.array( ( v12_pos, v23_pos , v13_pos ) ) + 1
+            new_face_3 = np.array( ( v12_pos, v23_pos , f2      ) ) + 1
+            new_face_4 = np.array( ( v13_pos, f3      , v23_pos ) ) + 1
+            
+            new_faces_array = np.vstack( ( new_faces_array , new_face_1 ) )
+            new_faces_array = np.vstack( ( new_faces_array , new_face_2 ) )
+            new_faces_array = np.vstack( ( new_faces_array , new_face_3 ) )
+            new_faces_array = np.vstack( ( new_faces_array , new_face_4 ) )
+            
+            # Also we have to delete the face, so let's assign the value (0,0,0) the deleted face
+            aux_face_array[face_counter] = np.array((0,0,0))
+            
+        face_counter+=1
+    
+    final_face_array = np.empty((0,3))
+    
+    for face in aux_face_array:
+        if (face.astype(int) == np.array( (0 , 0 , 0 ) ) ).all():
+            continue
+        final_face_array = np.vstack( (final_face_array , face ) )
+        
+    for new_face in new_faces_array:
+        final_face_array = np.vstack( (final_face_array , new_face ) )
+        
+    return final_face_array.astype(int) , new_vert_array
 
-            if v12pos == -1:
-                
-                v12pos = len(new_vert_array)
-                new_vert_array = np.vstack((new_vert_array , v12 ))
-                
-            if v13pos == -1:
-            
-                v13pos = len(new_vert_array)
-                new_vert_array = np.vstack((new_vert_array , v13 ))
-                
-            if v23pos == -1:
-                
-                v23pos = len(new_vert_array)
-                new_vert_array = np.vstack((new_vert_array , v23 ))
-            
-            v12pos+=1
-            v13pos+=1
-            v23pos+=1
-            
-            face1 = np.array((f1+1  , v13pos , v12pos ))
-            face2 = np.array((v12pos, v23pos , v13pos ))
-            face3 = np.array((v13pos, v23pos , f3 +1  ))
-            face4 = np.array((v12pos, v23pos , f2 +1  ))
-            
-            new_face_array[face_num] = np.zeros( ( 3 , ) )
-            
-            new_face_array = np.vstack((new_face_array , face1 ))
-            new_face_array = np.vstack((new_face_array , face2 ))
-            new_face_array = np.vstack((new_face_array , face3 ))
-            new_face_array = np.vstack((new_face_array , face4 ))
-        
-        face_num+=1
-        
-    aux_face_array = np.empty(( 0,3))
-    face_num = 0
-    for face in new_face_array:
-            
-        if not (face.astype(int) == (0,0,0)).all(): #np.zeros( ( 3 , 1) )).all():
-            
-            aux_face_array = np.vstack( (aux_face_array , face.astype(int) ) )
-            
-        face_num+=1  
-        
-    #new_face_array = aux_face_array.copy() # This avoid deleting 0 rows
-    return new_face_array.astype(int) , new_vert_array
 
 def newvert(vA,vB):
     return 0.5*(vA+vB)
+
+
+    
