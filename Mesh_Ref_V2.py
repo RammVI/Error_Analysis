@@ -11,7 +11,7 @@
 #    /______\              |/__\/__\|
 
 #     in the solvation energy.
-# 2. Adjacent triangles are split but half UNLESS:
+# 2. Adjacent triangles are split by half UNLESS:
 #    2.1 They are adjacent to 2 triangles to be refinated into 4 new triangles
 # Do this until there is no more triangles in 2.1 .
 
