@@ -1,6 +1,4 @@
 
-# 25-june-2019 17:45
-
 # Some rules about the mesh refinement:
 # 1. A percentaje of the faces must be refined and 4 new triangles are born
 #    where 3 new points are added in each edge center, and the input data is the residual
@@ -11,7 +9,7 @@
 #    /______\              |/__\/__\|
 
 #     in the solvation energy.
-# 2. Adjacent triangles are split by half UNLESS:
+# 2. Adjacent triangles are split but half UNLESS:
 #    2.1 They are adjacent to 2 triangles to be refinated into 4 new triangles
 # Do this until there is no more triangles in 2.1 .
 
@@ -126,7 +124,6 @@ def value_assignor_starter(face_array , soln , percentaje):
     
     # This extract the class value
     separator = np.sort(soln)[int(percentaje * len(soln) )]
-        
     refined_faces = np.zeros( (len(soln), ) )
         
     c = 0
