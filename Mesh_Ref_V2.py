@@ -451,5 +451,27 @@ def mesh_refiner(face_array , vert_array , soln , percentaje ):
 def newvert(vA,vB):
     return 0.5*(vA+vB)
 
-
+def smoothing_vertex( vert_array , fine_vert_array ):
+    '''
+    Smoots verts from a finer mesh
+    '''
     
+    smooted_vert_array = np.empty((0,3))
+    
+    for vert in vert_array:
+        
+        dist = 1000.
+        
+        for f_vert in fine_vert_array:
+            
+            #Searchs for closest vertex.
+            radii = np.linalg.norm( vert - f_vert )
+            
+            if radii<dist:
+                
+                dist = radii
+                added_vert = f_vert
+                
+        smooted_vert_array = np.vstack( (smooted_vert_array , added_vert ) )
+    
+    return smooted_vert_array 
