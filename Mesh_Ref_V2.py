@@ -372,6 +372,8 @@ def mesh_refiner(face_array , vert_array , soln , percentaje ):
             v1_pos , v2_pos = common_verts_between_2_triangles( ady_face , face ) - 1 
             #v1_pos and v2_pos have an absolute value - starts from 0
             
+            
+            
             v1 , v2 = vert_array[v1_pos] , vert_array[v2_pos]
             
             for v3_pos in face-1:
@@ -386,9 +388,26 @@ def mesh_refiner(face_array , vert_array , soln , percentaje ):
             if test_position == -1:
                 new_vert_array = np.vstack( (new_vert_array , new_vert ) )
                 test_position = len(new_vert_array)-1  #test_position is also absolute
+                
+                
+            #Because v1_pos and v2_pos are random-like positions, let's sort it 
+            # using a case by case test
+            f1 , f2 , f3 = face - 1    
             
-            new_face_1 = np.array( (v1_pos , test_position ,  v3_pos )) +1
-            new_face_2 = np.array( (v2_pos , test_position ,  v3_pos )) +1
+            if   (f1 == v1_pos and f2 == v2_pos) or (f1 == v2_pos and f2 == v1_pos):
+                
+                new_face_1 = np.array( ( f1            , test_position , f3  ) ) +1
+                new_face_2 = np.array( ( test_position , f2            , f3  ) ) +1
+                
+            elif (f2 == v1_pos and f3 == v2_pos) or (f2 == v2_pos and f3 == v1_pos):
+                
+                new_face_1 = np.array( ( f2            , test_position , f1 ) ) +1
+                new_face_2 = np.array( ( f1            , test_position , f3 ) ) +1 
+                
+            elif (f3 == v1_pos and f1 == v2_pos) or (f3 == v2_pos and f1 == v1_pos):
+                 
+                new_face_1 = np.array( ( f3            , test_position , f2 ) ) +1
+                new_face_2 = np.array( ( f1            , test_position , f2 ) ) +1
             
             new_faces_array = np.vstack((new_faces_array , new_face_1 ))
             new_faces_array = np.vstack((new_faces_array , new_face_2 ))
@@ -422,8 +441,8 @@ def mesh_refiner(face_array , vert_array , soln , percentaje ):
             
             new_face_1 = np.array( ( f1     , v12_pos , v13_pos ) ) + 1 
             new_face_2 = np.array( ( v12_pos, v23_pos , v13_pos ) ) + 1
-            new_face_3 = np.array( ( v12_pos, v23_pos , f2      ) ) + 1
-            new_face_4 = np.array( ( v13_pos, f3      , v23_pos ) ) + 1
+            new_face_3 = np.array( ( v12_pos, f2      , v23_pos ) ) + 1
+            new_face_4 = np.array( ( v13_pos, v23_pos , f3      ) ) + 1
             
             new_faces_array = np.vstack( ( new_faces_array , new_face_1 ) )
             new_faces_array = np.vstack( ( new_faces_array , new_face_2 ) )
