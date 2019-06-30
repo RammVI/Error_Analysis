@@ -120,21 +120,87 @@ def value_assignor_starter(face_array , soln , percentaje):
     Assigns face's value to the number of new triangles born (Desirable is 0, 2 or 4).
     May use first!
     '''
-
     
-    # This extract the class value
-    separator = np.sort(soln)[int(percentaje * len(soln) )]
     refined_faces = np.zeros( (len(soln), ) )
-        
-    c = 0
-    for v in soln:
-        
-        if v>separator:
-            refined_faces[c] = 4
-        c+=1
     
-    return refined_faces
+    if   type(percentaje) == int:
+        
+        
+        
+        listing    = np.zeros( (2 , len(soln)) )
+        listing[0] = soln
+        listing[1] = np.arange(len(soln))
+        
+        listing = zip(*listing)
+        listing.sort(key=lambda x: x[0])
+        
+        listing = np.array(listing)
+        
+        counter = 0
+        for face in listing[:,1][::-1]:
+            
+            refined_faces[face] = 4
+            
+            if counter == percentaje:
+                break
+            counter+=1
+        
+        return refined_faces
+    
+    elif type(percentaje) == float:
+        
+        percentaje_sum = 0.0
+        
+        listing    = np.zeros( (2 , len(soln)) )
+        listing[0] = soln / np.sum( soln )  
+        listing[1] = np.arange(len(soln))
+        
+        listing = zip(*listing)
+        listing.sort(key=lambda x: x[0])
+        
+        listing = np.array(listing)[::-1]
+        
+        print(listing)
+        
+        counter = 0
+        for face in listing[:,1]:
+            
+            refined_faces[face] = 4
+            percentaje_sum += listing[ counter , 0 ]
+            
+            if percentaje_sum > percentaje:
+                break
+            
+            counter +=1
+        
+        return refined_faces
+    
+    
+    
+    
+    
+        # This was used for past versions and refines a percentaje of the faces,
+        # this was changed to the faces contributing to the total percentaje
+        
+        # This extract the class value
+        #separator = np.sort(soln)[int(percentaje * len(soln) )]
+        #refined_faces = np.zeros( (len(soln), ) )
 
+        #c = 0
+        #for v in soln:
+
+        #    if v>separator:
+        #        refined_faces[c] = 4
+        #    c+=1
+
+        #return refined_faces
+
+    else:
+        print('Fatal error')
+
+        return None
+    
+    
 def coincidence_between_1D_arrays(array1 , array2 , coinc_num ):
     '''
     Search for coincidences between 2 arrays, returns True if arrays have coinc_num of coincidences
@@ -230,6 +296,13 @@ def adjacent_faces(face_num , face_array , return_face_number):
         return adj_faces
 
 def adj_assigner_value( face_array , soln , percentaje):
+    '''
+    Gives each face a value depending of its solution value
+    face_array : Array containing vertex position on a array of vertices
+    soln       : Quantity/Face atribute to be the criteria to refinate
+    percetaje  : Percentaje of the mainly faces contributing to error (if float) or
+                 number of faces to be refined
+    '''
     
     first_status = value_assignor_starter(face_array , soln , percentaje)
     
