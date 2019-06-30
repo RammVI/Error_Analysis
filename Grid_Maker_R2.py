@@ -1,5 +1,5 @@
 
-# Last revision (3) 16-June-2019
+# Last revision (2) 26-May-2019
 
 import bempp.api, numpy as np, time, os, matplotlib.pyplot as plt
 from math import pi
@@ -446,18 +446,21 @@ def Grid_loader(mol_name , mesh_density , suffix ):
     
     print(grid_name_File)
     
-    if not os.path.isfile(grid_name_File):
+    if os.path.isfile(grid_name_File) and suffix == '-0':
         
         pqr_directory = os.path.join('Molecule',mol_name, mol_name+'.pqr' )
         
         if not os.path.isfile(pqr_directory):
             pdb_to_pqr(mol_name , stern_thickness , method = 'amber' )
-            
+       
+    if suffix == '-0':
         pqr_to_xyzr(mol_name , stern_thickness=0 , method = 'amber' )
         xyzr_to_msh(mol_name , mesh_density , 1.4 , 0 , 0
                     , Mallador = 'MSMS', suffix = suffix )
         
-    print('Working on '+grid_name_File+ '.' )
+    print('Working on '+grid_name_File )
     grid = bempp.api.import_grid(grid_name_File)
+    
+    
     
     return grid

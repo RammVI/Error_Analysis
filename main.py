@@ -1,0 +1,129 @@
+
+import bempp.api, numpy as np
+from math import pi
+import os
+import time
+
+from constants import values
+from constants import mesh_info
+
+from bempp.api.operators.potential import laplace as lp
+from bempp.api.operators.boundary import sparse, laplace, modified_helmholtz
+
+from Grid_Maker_R2  import *
+from Mesh_Ref_V2    import *
+from quadrature     import *
+from Potential_Solver import *
+#from bem_parameters import *
+
+global mol_name , mesh_density , suffix , path , q , x_q , phi_space , phi_order , u_space , u_order
+
+def main(name , dens , input_suffix , output_suffix , percentaje , smooth = False):
+
+    mesh_info.mol_name     = name
+    mesh_info.mesh_density = dens
+    mesh_info.suffix       = input_suffix
+    mesh_info.path         = os.path.join('Molecule' , mesh_info.mol_name)
+
+    mesh_info.q , mesh_info.x_q = run_pqr(mesh_info.mol_name)
+
+    mesh_info.u_space , mesh_info.u_order     = 'P' , 1
+    mesh_info.phi_space , mesh_info.phi_order = 'P' , 1
+    mesh_info.u_s_space , mesh_info.u_s_order = 'P' , 1
+
+
+    bempp.api.set_ipython_notebook_viewer()
+    bempp.api.PLOT_BACKEND = "ipython_notebook"
+
+    grid = Grid_loader( mesh_info.mol_name , mesh_info.mesh_density , mesh_info.suffix )
+
+    dirichl_space_u = bempp.api.function_space(grid,  mesh_info.u_space, mesh_info.u_order)
+    neumann_space_u = bempp.api.function_space(grid,  mesh_info.u_space, mesh_info.u_order) 
+    dual_to_dir_s_u = bempp.api.function_space(grid,  mesh_info.u_space, mesh_info.u_order)
+
+    u_s  = bempp.api.GridFunction(dirichl_space_u, fun=u_s_G )
+    du_s = bempp.api.GridFunction(neumann_space_u, fun=du_s_G)
+
+    u_h , du_h = harmonic_component(dirichl_space_u , neumann_space_u , dual_to_dir_s_u , u_s , du_s)
+    u_r , du_r = regular_component(dirichl_space_u , neumann_space_u , dual_to_dir_s_u , du_s , du_h)
+
+    S_trad = S_trad_calc( dirichl_space_u, neumann_space_u , u_h , du_h , u_r , du_r)
+
+
+    dirichl_space_phi = bempp.api.function_space(grid,  mesh_info.phi_space , mesh_info.phi_order)
+    neumann_space_phi = bempp.api.function_space(grid,  mesh_info.phi_space , mesh_info.phi_order) 
+    dual_to_dir_s_phi = bempp.api.function_space(grid,  mesh_info.phi_space , mesh_info.phi_order)
+
+    phi , dphi = adjoint_equation( dirichl_space_phi , neumann_space_phi , dual_to_dir_s_phi)
+
+    aux_path = '_'+str(mesh_info.mesh_density)+ mesh_info.suffix
+
+    face_array = text_to_list(mesh_info.mol_name , aux_path , '.face' , info_type=int  )
+    vert_array = text_to_list(mesh_info.mol_name , aux_path , '.vert' , info_type=float)
+    
+    S_Cooper , S_Cooper_i = S_Cooper_calc( face_array , vert_array , phi , dphi , u_r+u_h , du_r+du_h , 25)
+    
+    dirichl_space_u_s  = bempp.api.function_space(grid,  mesh_info.u_s_space , mesh_info.u_s_order )
+    neumann_space_du_s = bempp.api.function_space(grid,  mesh_info.u_s_space , mesh_info.u_s_order )
+
+    u_s  = bempp.api.GridFunction(dirichl_space_u_s , fun=u_s_G )
+    du_s = bempp.api.GridFunction(neumann_space_du_s, fun=du_s_G)      
+    
+    S_Zeb    , S_Zeb_i    = S_Zeb_calc( face_array , vert_array , phi , dphi , u_s , du_s , 25)
+
+    const_space = bempp.api.function_space(grid,  "DP", 0)
+
+    Solv_i_Cooper_Func = bempp.api.GridFunction(const_space, fun=None, coefficients=S_Cooper_i[:,0])
+    Solv_i_Zeb_Func    = bempp.api.GridFunction(const_space, fun=None, coefficients=S_Zeb_i[:,0])
+
+    dif =S_Cooper_i-S_Zeb_i
+
+    dif_F = bempp.api.GridFunction(const_space, fun=None, coefficients=np.abs(dif[:,0] ) )
+    #dif_F.plot()    
+    
+    bempp.api.export('Molecule/' + name +'/' + name + '_{0}{1}.vtk'.format( dens,input_suffix )
+                     , grid_function = dif_F , data_type = 'element')
+
+    new_face_array , new_vert_array = mesh_refiner(face_array , vert_array , dif[:,0] , 1.-percentaje )
+    
+    if smooth:
+        fine_vert_array = text_to_list(name , '_40.0-0' , '.vert' , info_type=float)
+        new_vert_array = smoothing_vertex( new_vert_array , fine_vert_array )
+
+    vert_and_face_arrays_to_text_and_mesh( name , new_vert_array ,
+                                        new_face_array.astype(int)[:] , output_suffix, dens , Self_build=True)
+
+    grid = Grid_loader( name , dens , output_suffix )
+    print('New mesh:')
+    #grid.plot()
+    
+    N_elements = len(face_array)
+    
+    return S_trad , S_Cooper , S_Zeb , N_elements
+    #return dif[:,0]
+    
+print('Test')
+
+
+Resultados = open( 'Resultados_20-06-19.txt' , 'w+' )
+
+Resultados.write( ' density  & Times-Refinated & Num of Elem &  smoothed & Strad & SCooper & SZeb  \n' )
+
+for molecule in ('methanol' , 'arg'):
+    
+    for dens in ( 2.0 , 3.0):#(2.0 , 3.0 , 4.0 , 5.0 , 6.0 , 6.25 , 8.0 , 9.0 , 12.0 , 13.5 ):
+        
+        c_r = 0
+        instance = ('-0' , '-1' , '-2') #, '-2' , '-3' , '-4')
+        for suffix in instance[:-1]:
+            # Refinning 3 times
+            text = '{0} & {1}'.format( str(dens) , suffix  )
+            smoothed = False
+            
+            S_trad , S_Cooper , S_Zeb , N_elements = main( molecule , dens , suffix , instance[c_r+1] , 0.05)
+            
+            text = text + ' & {0:d} & {1:.10f} & {2:.10f} & {3:.10f} \n'.format( N_elements , S_trad , 
+                                                                               S_Cooper , S_Zeb)
+            Resultados.write( text )
+            c_r+=1
+Resultados.close()
