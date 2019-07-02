@@ -125,8 +125,6 @@ def value_assignor_starter(face_array , soln , percentaje):
     
     if   type(percentaje) == int:
         
-        
-        
         listing    = np.zeros( (2 , len(soln)) )
         listing[0] = soln
         listing[1] = np.arange(len(soln))
@@ -138,10 +136,10 @@ def value_assignor_starter(face_array , soln , percentaje):
         
         counter = 0
         for face in listing[:,1][::-1]:
+
+            refined_faces[int(face)] = 4
             
-            refined_faces[face] = 4
-            
-            if counter == percentaje:
+            if counter+1 == percentaje:
                 break
             counter+=1
         
@@ -160,12 +158,10 @@ def value_assignor_starter(face_array , soln , percentaje):
         
         listing = np.array(listing)[::-1]
         
-        print(listing)
-        
         counter = 0
         for face in listing[:,1]:
             
-            refined_faces[face] = 4
+            refined_faces[int(face)] = 4
             percentaje_sum += listing[ counter , 0 ]
             
             if percentaje_sum > percentaje:
@@ -545,7 +541,7 @@ def newvert(vA,vB):
 
 def smoothing_vertex( vert_array , fine_vert_array ):
     '''
-    Smoots verts from a finer mesh
+    Smooths verts from a finer mesh
     '''
     
     smooted_vert_array = np.empty((0,3))
