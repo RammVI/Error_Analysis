@@ -4,6 +4,8 @@ It contains the functions to compute the fine Gaussian quadrature and the
 wights and gauss points for the regular Gauss quadrature.
 """
 import numpy as np
+from constants import mesh_info
+from constants import values
 
 def unpack_info( face , face_array, vert_array , soln , space , order):
     
@@ -229,81 +231,6 @@ def Theorical_int_P1_times_P1( sol1 , sol2 , Area):
                           sol1[2] * (     sol2[0] +    sol2[1] + 2.* sol2[2] )  )
     return value
 
-def Zeb_aproach_with_u_s_Teo( face_array , vert_array , phi , dphi , N):
-    
-    normals = normals_to_element( face_array , vert_array )
-    
-    Solv_Zeb = np.zeros((len(face_array),1))
-    c = 0
-    
-    for face in face_array:
-        
-        f1 , f2 , f3 = face-1
-        v1 , v2 , v3 = vert_array[f1] , vert_array[f2] , vert_array[f3]
-        
-        normal = normals[c]
-        
-        
-        A = matrix_lineal_transform( v1 , v2 , v3 )
-        
-        Area = 0.5 * np.linalg.norm( np.cross(v2-v1 , v3-v1) )
-        
-        X_K , W = evaluation_points_and_weights(v1,v2,v3 , N)
-        
-        phi_a  = unpack_info( face , face_array, vert_array , phi  , mesh_info.phi_space , mesh_info.phi_order)
-        dphi_a = unpack_info( face , face_array, vert_array , dphi , mesh_info.phi_space , mesh_info.phi_order)
-        
-        I1 , I2 = 0. , 0. 
-        
-        point_count = 0        
-        for x in X_K:
-            
-            phi_local  = local_f( x , A , phi_a  , mesh_info.phi_order)
-            dphi_local = local_f( x , A , dphi_a , mesh_info.phi_order)
-            
-            u_s_local  = u_s_Teo( x )
-            du_s_local = du_s_Teo( x , normal )
-            
-            I1 += ep_m * dphi_local * u_s_local * W[point_count] 
-            
-            I2 += ep_m * phi_local * du_s_local * W[point_count]
-            
-            point_count+=1
-            
-        Solv_Zeb[c] = (I2-I1)*Area
-
-        c+=1
-    Solv_Zeb_i = Solv_Zeb
-    S_Zeb = K*np.sum(Solv_Zeb )
-    print('Zeb Solv = {0:10f} '.format(S_Zeb)) 
-    
-    return S_Zeb , Solv_Zeb_i
-
-def u_s_Teo( x ):
-    
-    return (C / (4.*np.pi*ep_m) ) * np.sum( mesh_info.q / np.linalg.norm( x - mesh_info.x_q, axis=1 ) )
-    
-    #result[:] =  C / (4.*np.pi*ep_m)  * np.sum( mesh_info.q / np.linalg.norm( x - mesh_info.x_q, axis=1 ) )
-
-def du_s_Teo(x,n):
-    
-    return -1./(4.*np.pi*ep_m)  * np.sum( np.dot( x-
-                            mesh_info.x_q , n)  * mesh_info.q / np.linalg.norm( x - mesh_info.x_q, axis=1 )**3 )
-
-def normals_to_element( face_array , vert_array ):
-
-    normals = np.empty((0,3))
-    element_cent = np.empty((0,3))
-    
-    for face in face_array:
-        
-        f1,f2,f3 = face-1
-        v1 , v2 , v3 = vert_array[f1] , vert_array[f2] , vert_array[f3]
-        n = np.cross( v2-v1 , v3-v1 ) 
-        normals = np.vstack((normals , n/np.linalg.norm(n) )) 
-        element_cent = np.vstack((element_cent, (v1+v2+v3)/3. ))
-
-    return normals
 
 # --------------------- FROM PYBGE -------------------
 
