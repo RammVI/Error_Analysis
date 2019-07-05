@@ -18,11 +18,12 @@ def unpack_info( face , face_array, vert_array , soln , space , order):
                 break
             fc += 1
 
-        return soln.coefficients.real[fc]
+        return soln[fc].coefficients.real[fc]
     
     elif space == 'P' and order ==1:
         
-        s1 ,s2 , s3 = soln.coefficients.real[f1] , soln.coefficients.real[f2] , soln.coefficients.real[f3]
+        sol = soln.coefficients.real
+        s1 ,s2 , s3 = sol[f1] , sol[f2] , sol[f3]
         
         return np.array((s1,s2,s3))
     
@@ -144,9 +145,10 @@ def int_calc_i( face , face_array , vert_array , soln1 , space1 , order1 , soln2
     order1 : Order of the polynomial used for space1
     N      : Number of points used for Gauss integration
     '''
-    f1 , f2 , f3 = face -1
+    f1 , f2 , f3 = face - 1 
+    
     v1 , v2 , v3 = vert_array[f1] , vert_array[f2] , vert_array[f3]
-
+    
     s1 = unpack_info( face , face_array, vert_array , soln1 , space1 , order1)
     
     s2 = unpack_info( face , face_array, vert_array , soln2 , space2 , order2)
@@ -175,12 +177,133 @@ def int_calc_i( face , face_array , vert_array , soln1 , space1 , order1 , soln2
         f_l1  = local_f( xk , A , s1 , order1)
         f_l2  = local_f( xk , A , s2 , order2)
 
-        integral_i += f_l1*f_l2 * W_K[c]
-        
+        integral_i += f_l1 * f_l2 * W_K[c]
         
         c+=1
         
+    #integral_i = Theorical_int_P1( s1 , s2 , Area )
+    #return integral_i
+        
     return integral_i.real*Area
+
+def edge_counter(face_array):
+    '''
+    Counts non repited combinations for every triangle edge using their index position in vert_array.
+    '''
+    aristas = np.empty((0,2))
+
+    for face in face_array:
+
+        ar1 = np.array((face[0],face[1]))
+        ar2 = np.array((face[0],face[2]))
+        ar3 = np.array((face[1],face[2]))
+
+        if len(aristas)==0:
+            aristas = np.vstack((aristas , ar1))
+
+        ar1_not_in_aristas , ar2_not_in_aristas , ar3_not_in_aristas = True , True , True
+
+        for j in aristas:
+            if (ar1 == j).all() or (ar1[::-1] == j ).all():
+                ar1_not_in_aristas = False
+
+            if (ar2 == j).all() or (ar2[::-1] == j ).all():
+                ar2_not_in_aristas = False
+
+            if (ar3 == j).all() or (ar3[::-1] == j ).all():
+                ar3_not_in_aristas = False
+
+        if ar1_not_in_aristas:
+            aristas = np.vstack((aristas , ar1))
+        if ar2_not_in_aristas:
+            aristas = np.vstack((aristas , ar2))
+        if ar3_not_in_aristas:
+            aristas = np.vstack((aristas , ar3))
+        
+        
+    return len(aristas.astype(int))
+
+def Theorical_int_P1_times_P1( sol1 , sol2 , Area):
+    value = 2. * Area/24. * ( sol1[0] * ( 2.*  sol2[0] +    sol2[1] +     sol2[2] ) +
+                          sol1[1] * (     sol2[0] + 2.*sol2[1] +     sol2[2] ) +
+                          sol1[2] * (     sol2[0] +    sol2[1] + 2.* sol2[2] )  )
+    return value
+
+def Zeb_aproach_with_u_s_Teo( face_array , vert_array , phi , dphi , N):
+    
+    normals = normals_to_element( face_array , vert_array )
+    
+    Solv_Zeb = np.zeros((len(face_array),1))
+    c = 0
+    
+    for face in face_array:
+        
+        f1 , f2 , f3 = face-1
+        v1 , v2 , v3 = vert_array[f1] , vert_array[f2] , vert_array[f3]
+        
+        normal = normals[c]
+        
+        
+        A = matrix_lineal_transform( v1 , v2 , v3 )
+        
+        Area = 0.5 * np.linalg.norm( np.cross(v2-v1 , v3-v1) )
+        
+        X_K , W = evaluation_points_and_weights(v1,v2,v3 , N)
+        
+        phi_a  = unpack_info( face , face_array, vert_array , phi  , mesh_info.phi_space , mesh_info.phi_order)
+        dphi_a = unpack_info( face , face_array, vert_array , dphi , mesh_info.phi_space , mesh_info.phi_order)
+        
+        I1 , I2 = 0. , 0. 
+        
+        point_count = 0        
+        for x in X_K:
+            
+            phi_local  = local_f( x , A , phi_a  , mesh_info.phi_order)
+            dphi_local = local_f( x , A , dphi_a , mesh_info.phi_order)
+            
+            u_s_local  = u_s_Teo( x )
+            du_s_local = du_s_Teo( x , normal )
+            
+            I1 += ep_m * dphi_local * u_s_local * W[point_count] 
+            
+            I2 += ep_m * phi_local * du_s_local * W[point_count]
+            
+            point_count+=1
+            
+        Solv_Zeb[c] = (I2-I1)*Area
+
+        c+=1
+    Solv_Zeb_i = Solv_Zeb
+    S_Zeb = K*np.sum(Solv_Zeb )
+    print('Zeb Solv = {0:10f} '.format(S_Zeb)) 
+    
+    return S_Zeb , Solv_Zeb_i
+
+def u_s_Teo( x ):
+    
+    return (C / (4.*np.pi*ep_m) ) * np.sum( mesh_info.q / np.linalg.norm( x - mesh_info.x_q, axis=1 ) )
+    
+    #result[:] =  C / (4.*np.pi*ep_m)  * np.sum( mesh_info.q / np.linalg.norm( x - mesh_info.x_q, axis=1 ) )
+
+def du_s_Teo(x,n):
+    
+    return -1./(4.*np.pi*ep_m)  * np.sum( np.dot( x-
+                            mesh_info.x_q , n)  * mesh_info.q / np.linalg.norm( x - mesh_info.x_q, axis=1 )**3 )
+
+def normals_to_element( face_array , vert_array ):
+
+    normals = np.empty((0,3))
+    element_cent = np.empty((0,3))
+    
+    for face in face_array:
+        
+        f1,f2,f3 = face-1
+        v1 , v2 , v3 = vert_array[f1] , vert_array[f2] , vert_array[f3]
+        n = np.cross( v2-v1 , v3-v1 ) 
+        normals = np.vstack((normals , n/np.linalg.norm(n) )) 
+        element_cent = np.vstack((element_cent, (v1+v2+v3)/3. ))
+
+    return normals
 
 # --------------------- FROM PYBGE -------------------
 
@@ -657,40 +780,3 @@ def getWeights(K):
 
     return w
 # yapf: enable
-
-def edge_counter(face_array):
-    '''
-    Counts non repited combinations for every triangle edge using their index position in vert_array.
-    '''
-    aristas = np.empty((0,2))
-
-    for face in face_array:
-
-        ar1 = np.array((face[0],face[1]))
-        ar2 = np.array((face[0],face[2]))
-        ar3 = np.array((face[1],face[2]))
-
-        if len(aristas)==0:
-            aristas = np.vstack((aristas , ar1))
-
-        ar1_not_in_aristas , ar2_not_in_aristas , ar3_not_in_aristas = True , True , True
-
-        for j in aristas:
-            if (ar1 == j).all() or (ar1[::-1] == j ).all():
-                ar1_not_in_aristas = False
-
-            if (ar2 == j).all() or (ar2[::-1] == j ).all():
-                ar2_not_in_aristas = False
-
-            if (ar3 == j).all() or (ar3[::-1] == j ).all():
-                ar3_not_in_aristas = False
-
-        if ar1_not_in_aristas:
-            aristas = np.vstack((aristas , ar1))
-        if ar2_not_in_aristas:
-            aristas = np.vstack((aristas , ar2))
-        if ar3_not_in_aristas:
-            aristas = np.vstack((aristas , ar3))
-        
-        
-    return len(aristas.astype(int))
