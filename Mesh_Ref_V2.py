@@ -341,23 +341,31 @@ def final_status(face_array , soln , percentaje ):
             aux_status[face_num] = 4
         face_num+=1
         
-    status = aux_status.copy()        
+    status = aux_status.copy().astype(int)        
     
     iteration_restrictor = 0
     
     Calculating = True
     
-    while 2 in status and iteration_restrictor<10 or Calculating:
+    while 2 in status and (iteration_restrictor<10 or Calculating):
         
         if iteration_restrictor == 9:
-            print('Adapting the mesh is taking too long!')
-        
+            print('Adapting the mesh is taking too long! - Breaking ')
+            print('Adapting the mesh is taking too long! - Breaking ')
+            print('Adapting the mesh is taking too long! - Breaking ')
+            print('Adapting the mesh is taking too long! - Breaking ')
+            print('Adapting the mesh is taking too long! - Breaking ')
+            print('Adapting the mesh is taking too long! - Breaking ')
+            print('Adapting the mesh is taking too long! - Breaking ')
+            print('Adapting the mesh is taking too long! - Breaking ')
+            print('Adapting the mesh is taking too long! - Breaking ')
+            
         # Changing the 2 values for 4
         
         face_num = 0
         aux_status = status.copy()
         for s in status:
-            if s == 2:
+            if s == 2 or s == 3 :
                 aux_status[face_num] = 4
             face_num += 1
         
@@ -411,6 +419,8 @@ def mesh_refiner(face_array , vert_array , soln , percentaje ):
     '''
     
     status = final_status(face_array , soln , percentaje )
+    
+    print(status)
     
     new_faces_array = np.empty((0,3))
     new_vert_array = vert_array.copy()
