@@ -347,7 +347,7 @@ def final_status(face_array , soln , percentaje ):
     
     Calculating = True
     
-    while 2 in status and (iteration_restrictor<10 or Calculating):
+    while 2 in status and iteration_restrictor<10 or Calculating:
         
         if iteration_restrictor == 9:
             print('Adapting the mesh is taking too long! - Breaking ')
@@ -420,7 +420,6 @@ def mesh_refiner(face_array , vert_array , soln , percentaje ):
     
     status = final_status(face_array , soln , percentaje )
     
-    print(status)
     
     new_faces_array = np.empty((0,3))
     new_vert_array = vert_array.copy()
@@ -486,7 +485,7 @@ def mesh_refiner(face_array , vert_array , soln , percentaje ):
             elif (f3 == v1_pos and f1 == v2_pos) or (f3 == v2_pos and f1 == v1_pos):
                  
                 new_face_1 = np.array( ( f3            , test_position , f2 ) ) +1
-                new_face_2 = np.array( ( f1            , test_position , f2 ) ) +1
+                new_face_2 = np.array( ( f2            , test_position , f1 ) ) +1
             
             new_faces_array = np.vstack((new_faces_array , new_face_1 ))
             new_faces_array = np.vstack((new_faces_array , new_face_2 ))
