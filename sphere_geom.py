@@ -6,6 +6,7 @@ Builds spherical boundary from decahedron
 '''
 
 import numpy as np
+import os
 
 def decahedron_points(r):
     '''
@@ -20,7 +21,7 @@ def decahedron_points(r):
     if r==0:
         return None
     
-    scale = (2. * r) /np.sqrt(1.+rho**2.)
+    scale = (r) /np.sqrt(1.+rho**2.)
     
     vert_array = np.zeros((12,3))
     
@@ -68,7 +69,7 @@ def smothing_func( v_i , r ):
     v_i : vertex to move to the boundary
     r   : sphere radii
     '''
-    t = 2. * r /np.linalg.norm(v_i)
+    t = r /np.linalg.norm(v_i)
     return v_i * t
 
 def pqr_assembly( x_q , q , mol_name ):
@@ -109,10 +110,17 @@ def pqr_assembly( x_q , q , mol_name ):
         pqr_text.close()
     return None
 
-def suffix_names(N_iterations):
-    Num_instances = 5
-    instances = np.empty( (Num_instances , )).astype(str)
-    for i in range(5):
+def suffix_names(N_s):
+    instances = np.empty( (N_s+1 , )).astype(str)
+    for i in range(N_s +1 ):
         instances[i] = '-s{0:d}'.format(i)
-    
     return instances
+
+def moving_files(name , percentaje , s):
+
+
+    path      = os.path.join( 'Molecule' , name)
+    dest_path = os.path.join( path , str( int(percentaje*100)) , str(s) )
+    os.system('mv {0}*.vtk {0}*.txt {0}*.face {0}*.vert {0}*.msh {0}*.off {1}'.format(path+'/' , dest_path) )
+    
+    return

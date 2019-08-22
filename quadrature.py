@@ -20,7 +20,7 @@ def unpack_info( face , face_array, vert_array , soln , space , order):
                 break
             fc += 1
 
-        return soln[fc].coefficients.real[fc]
+        return soln.coefficients.real[fc]
     
     elif space == 'P' and order ==1:
         

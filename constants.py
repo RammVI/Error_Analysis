@@ -29,13 +29,13 @@ class mesh_info():
     suffix   = '-0'
     path = os.path.join('Molecule',mol_name) 
     
+    stern_thickness = 0
+    
     q   = np.array((1.))
     x_q = np.array((0. , 0. , 0. ))
     
     phi_space , phi_order = 'P'  , 1
     u_space   , u_order   = 'DP' , 0
-    
-    u_s_space , u_s_order = 'P'  , 1  # For More exact solvation calcs.
     
 
     

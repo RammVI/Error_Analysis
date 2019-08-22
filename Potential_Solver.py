@@ -1,4 +1,6 @@
 
+# checked 19.09
+
 import bempp.api
 import numpy as np
 import os
@@ -12,17 +14,19 @@ from constants import *
 
 from quadrature import *
 
-
+# --------------------------------------------------------------------------------
 
 def zero_i(x, n, domain_index, result):
     result[:] = 0
 
 def u_s_G(x,n,domain_index,result):
-    result[:] =  C / (4.*np.pi*ep_m)  * np.sum( mesh_info.q / np.linalg.norm( x - mesh_info.x_q, axis=1 ) )
+    global ep_m 
+    result[:] =  1. / (4.*np.pi*ep_m)  * np.sum( mesh_info.q / np.linalg.norm( x - mesh_info.x_q, axis=1 ) )
 
 def du_s_G(x,n,domain_index,result):
+    global ep_m
     result[:] = -1./(4.*np.pi*ep_m)  * np.sum( np.dot( x-
-                            mesh_info.x_q , n)  * mesh_info.q / np.linalg.norm( x - mesh_info.x_q, axis=1 )**3 )
+                            mesh_info.x_q , n  )  * mesh_info.q / np.linalg.norm( x - mesh_info.x_q, axis=1 )**3 )
 
 def harmonic_component(dirichl_space , neumann_space , dual_to_dir_s , u_s , du_s):
     
@@ -78,8 +82,77 @@ def regular_component(dirichl_space , neumann_space , dual_to_dir_s , du_s , du_
     
     return u_r , du_r
 
+# --------------------------------------------------------------------------------
+
+def carga_i(x, n, domain_index, result):
+    global ep_m
+
+    # Right side of the eqn, with the Green function convolution
+    result[:] = np.sum(mesh_info.q/np.linalg.norm( x - mesh_info.x_q, axis=1 ))/(4.*np.pi*ep_m)
+
+
+
+def U_and_U_Reac(dirichl_space , neumann_space , dual_to_dir_s):
+    '''
+    Computes reaction potential for a given space with the definition: U = U^Reac + U^Coulomb.    
+    '''
+    global ep_m , ep_s , k
+
+    identity = sparse.identity(     dirichl_space, dirichl_space, dual_to_dir_s)
+    slp_in   = laplace.single_layer(neumann_space, dirichl_space, dual_to_dir_s)
+    dlp_in   = laplace.double_layer(dirichl_space, dirichl_space, dual_to_dir_s)
+
+    slp_out  = modified_helmholtz.single_layer(neumann_space, dirichl_space, dual_to_dir_s, k)
+    dlp_out  = modified_helmholtz.double_layer(dirichl_space, dirichl_space, dual_to_dir_s, k)
+
+    charged_grid_fun = bempp.api.GridFunction(dirichl_space, fun=q_times_G_L)
+    zero_grid_fun    = bempp.api.GridFunction(neumann_space, fun=zero_i     )
+
+    blocked = bempp.api.BlockedOperator(2, 2)
+    blocked[0, 0] = 0.5*identity + dlp_in
+    blocked[0, 1] = -slp_in
+    blocked[1, 0] = 0.5*identity - dlp_out
+    blocked[1, 1] = (ep_m/ep_s)*slp_out
+
+    rhs = [charged_grid_fun, zero_grid_fun]
+
+    sol, info,it_count = bempp.api.linalg.gmres( blocked, rhs , return_iteration_count=True , tol=1e-8)
+    print("The linear system for U_tot was solved in {0} iterations".format(it_count))
+    U , dU = sol
+    
+    U_s  = bempp.api.GridFunction(dirichl_space , fun =  u_s_G)
+    dU_s = bempp.api.GridFunction(neumann_space , fun = du_s_G)
+    
+    U_R  =  U -  U_s
+    dU_R = dU - dU_s
+    
+    return U, dU , U_R , dU_R
+
+def S_trad_calc_R( dirichl_space, neumann_space , U , dU ):
+    
+    # En base a los puntos donde se encuentran las cargas, calculemos el potencial u_r y u_h
+    # Esto luego de que podemos escribir la energia de solvatacion como
+    # G_solv = Sum_i q_i *u_reac = Sum_i q_i * (u_h+u_r)           evaluado en cada carga.
+
+    # Se definen los operadores
+    slp_in_O = lp.single_layer(neumann_space, mesh_info.x_q.transpose()) 
+    dlp_in_O = lp.double_layer(dirichl_space, mesh_info.x_q.transpose())
+
+    # Y con la solucion de las fronteras se fabrica el potencial evaluada en la posicion de cada carga
+    U_R_O = slp_in_O * dU  -  dlp_in_O * U
+
+    # Donde agregando algunas constantes podemos calcular la energia de solvatacion S
+    
+    S     = K * np.sum(mesh_info.q * U_R_O).real
+    print("Three Term Splitting Solvation Energy : {:7.8f} [kCal/mol] ".format(S) )
+    
+    return S
+
+
+# --------------------------------------------------------------------------------
+
 def q_times_G_L(x, n, domain_index, result):
-    global q,x_q,ep_m,C , k
+    global ep_m
     result[:] = 1. / (4.*np.pi*ep_m)  * np.sum( mesh_info.q  / np.linalg.norm( x - mesh_info.x_q, axis=1 ) )
 
 def adjoint_equation( dirichl_space , neumann_space , dual_to_dir_s):
@@ -156,6 +229,7 @@ def S_Zeb_calc( face_array , vert_array , phi , dphi , u_s , du_s , N):
     
     Solv_Zeb = np.zeros((len(face_array),1))
     c = 0
+    print(mesh_info.u_s_order)
     for face in face_array:
 
         I1 = int_calc_i( face , face_array , vert_array , phi , mesh_info.phi_space 
@@ -214,7 +288,7 @@ def Zeb_aproach_with_u_s_Teo( face_array , vert_array , phi , dphi , N):
             
             point_count+=1
             
-        Solv_Zeb[c] = (I2-I1)*Area
+        Solv_Zeb[c] = (I1-I2)*Area
 
         c+=1
     Solv_Zeb_i = Solv_Zeb
@@ -248,3 +322,6 @@ def normals_to_element( face_array , vert_array ):
         element_cent = np.vstack((element_cent, (v1+v2+v3)/3. ))
 
     return normals
+
+def z_value(x, n, domain_index, result):
+    result[:] = x[0]

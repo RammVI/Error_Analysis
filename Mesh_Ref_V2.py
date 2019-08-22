@@ -54,7 +54,7 @@ def search_unique_position_in_array(array , main_array):
     
     
     
-def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
+def isclose(a, b, rel_tol=1e-5, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
     
 def search_multiple_positions_in_array( arrays , main_array ):
@@ -347,9 +347,9 @@ def final_status(face_array , soln , percentaje ):
     
     Calculating = True
     
-    while 2 in status and iteration_restrictor<10 or Calculating:
+    while 2 in status and iteration_restrictor<20 or Calculating:
         
-        if iteration_restrictor == 9:
+        if iteration_restrictor == 15:
             print('Adapting the mesh is taking too long! - Breaking ')
             print('Adapting the mesh is taking too long! - Breaking ')
             print('Adapting the mesh is taking too long! - Breaking ')

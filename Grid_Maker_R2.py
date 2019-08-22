@@ -405,6 +405,40 @@ def triangle_areas(mol_directory , mol_name , dens , return_data = False , suffi
     
     return None
 
+def normals_to_element( face_array , vert_array , check_dir = False ):
+    '''
+    Calculates normals to a given element, pointint outwards.
+    face_array : Array of vertex position for each triangle
+    vert_array : Array of vertices
+    check_dir  : checks direction of normals. WORKS ONLY FOR A SPHERE WITH RADII 1!!!!!!!!!!!!
+    '''
+
+    normals = np.empty((0,3))
+    element_cent = np.empty((0,3))
+    
+    check_list = np.empty((0,1))
+    
+    for face in face_array:
+        
+        f1,f2,f3 = face-1
+        v1 , v2 , v3 = vert_array[f1] , vert_array[f2] , vert_array[f3]
+        n = np.cross( v2-v1 , v3-v1 ) 
+        normals = np.vstack((normals , n/np.linalg.norm(n) )) 
+        element_cent = np.vstack((element_cent, (v1+v2+v3)/3. ))
+        
+        if check_dir:
+            v_c = v1 + v2 + v3
+            pdot= np.dot( v_c , n )
+            if pdot>0:
+                check = True
+            else:
+                check = False
+            check_list = np.vstack( (check_list , check ) )
+            
+
+    return normals , check_list[:,0]
+
+
 def vert_and_face_arrays_to_text_and_mesh(mol_name , vert_array , face_array , suffix 
                                           , dens=2.0 , Self_build=True):
     '''
