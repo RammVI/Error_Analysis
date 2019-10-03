@@ -2,20 +2,21 @@
 import bempp.api, numpy as np
 from math import pi
 import os
-from Grid_Maker import *
+from Grid_Maker_R2 import *
 
 
-def text_to_list(mol_name , suffix , txt_format , info_type=float):
+def text_to_list(mol_name , total_suffix , txt_format , info_type=float):
     '''
     Rutine which builds lists from text files that contain the vert and face info
     mol_name : Abreviated name of the molecule
-    suffix   : text added after molecule name, for an easier handling of files
+    total_suffix   : text added after molecule name, for an easier handling of files 
+                     may be taken as a total and used like _{density}-{it_count}
     txt_format : file format
     info_type  : float or int
     '''
     path = os.path.join('Molecule',mol_name)
     
-    list_txt = open( os.path.join(path , mol_name +suffix + txt_format) ).read().split('\n')
+    list_txt = open( os.path.join(path , mol_name +total_suffix + txt_format) ).read().split('\n')
 
     listing = np.empty((0,3))
     for line in list_txt[:-1]:
@@ -82,6 +83,9 @@ def mesh_flat_refinement(mol_name,faces,face_array,vert_array , suffix , dens):
     return None
 
 def random_face_list(Number_of_faces , face_array):
+    '''
+    Shall be used as a debug function !
+    '''
     if Number_of_faces>len(face_array):
         print('Error: Numer of faces is greater than length of face_array!')
     random_faces = np.random.randint(1,len(face_array) , size =Number_of_faces)
@@ -109,8 +113,9 @@ def mesh_ref(mol_name , refined_faces , input_file_suffix , output_file_suffixx 
     suffix   = ''
 
     # Information is imported
-    face_array = text_to_list(mol_name , input_file_suffix , '.face' , info_type=int  )
-    vert_array = text_to_list(mol_name , input_file_suffix , '.vert' , info_type=float)
+    aux_path = '_'+str(starting_density)+input_file_suffix
+    face_array = text_to_list(mol_name , aux_path , '.face' , info_type=int  )
+    vert_array = text_to_list(mol_name , aux_path , '.vert' , info_type=float)
 
 
     #refined_faces = random_face_list(50 , face_array) 
@@ -118,3 +123,18 @@ def mesh_ref(mol_name , refined_faces , input_file_suffix , output_file_suffixx 
     mesh_flat_refinement(mol_name , refined_faces,face_array,vert_array, output_file_suffixx , dens = starting_density)
     
     return None
+
+def splitting_by_half_triangle(face , vert_array , face_array):
+    
+    
+    v1 , v2 , v3 = vert_array[face[0]-1] , vert_array[face[1]-1] , vert_array[face[2]-1]
+
+    v1v2 = v2 - v1
+    v3v2 = v3 - v2
+    v3v1 = v3 - v1
+    
+    mayor = 1
+    
+    return mayor
+    
+    

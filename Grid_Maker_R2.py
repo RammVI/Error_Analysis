@@ -5,6 +5,7 @@ import bempp.api, numpy as np, time, os, matplotlib.pyplot as plt
 from math import pi
 from bempp.api.operators.boundary import sparse, laplace, modified_helmholtz
 from matplotlib import pylab as plt
+from File_converter_python2 import *
 
 # This python must be saved in a directory where you have a folder named
 # /Molecule/Molecule_Name, as obviusly Molecule_Name holds a .pdb or .pqr file
@@ -473,7 +474,7 @@ def vert_and_face_arrays_to_text_and_mesh(mol_name , vert_array , face_array , s
     
     return None
 
-def Grid_loader(mol_name , mesh_density , suffix ):
+def Grid_loader(mol_name , mesh_density , suffix , GAMer=False):
     
     path = os.path.join('Molecule',mol_name)
     grid_name_File =  os.path.join(path,mol_name + '_'+str(mesh_density)+suffix+'.msh')
@@ -494,7 +495,15 @@ def Grid_loader(mol_name , mesh_density , suffix ):
         
     print('Working on '+grid_name_File )
     grid = bempp.api.import_grid(grid_name_File)
-    
-    
+    if GAMer:
+        face_array = np.transpose(grid.leaf_view.elements)+1
+        vert_array = np.transpose(grid.leaf_view.vertices)
+        
+        new_face_array , new_vert_array = Improve_Mesh(face_array , vert_array , path , mol_name + '_'+str(mesh_density)+suffix )
+        
+        vert_and_face_arrays_to_text_and_mesh(mol_name , new_vert_array , new_face_array , suffix 
+                                          , dens=mesh_density , Self_build=True)
+        
+        grid = bempp.api.import_grid(grid_name_File)
     
     return grid

@@ -16,6 +16,8 @@
 # Also, the possibility to extrapolate the point to the real boundary will be
 # set in a function named new_point()
 
+# 11-09 Adjoint mesh usefull
+
 import bempp.api, numpy as np
 from math import pi
 import os
@@ -572,3 +574,71 @@ def smoothing_vertex( vert_array , fine_vert_array ):
         smooted_vert_array = np.vstack( (smooted_vert_array , added_vert ) )
     
     return smooted_vert_array 
+ 
+    
+def is_interior_triangle(adj_vertices , local_vert_array):
+    '''
+    Returns true if the designed triangle from the adjoint mesh is totally inside the normal triangle.
+    adj_vertices : Three vertices from the same elements
+    local_vert_array   : Array of vertices for a given triangle.
+    '''
+    
+    v1a , v2a, v3a = adj_vertices
+    v1 , v2 , v3 = local_vert_array
+    
+    v12 , v13 , v23 = 0.5*(v1+v2) , 0.5*(v1+v3) , 0.5*(v2+v3)
+    
+    c=0
+    for adj_vertex in adj_vertices:
+        for vert in (v1, v2 , v3 , v12 , v13 , v23 ):
+            if isclose(adj_vertex , vert):
+                print(adj_vertex , vert)
+                c+=1
+    if c == 3:
+        return True
+    else:
+        return False
+    
+def elements_position_in_normal_grid(adj_face_array , adj_vert_array , face_array , vert_array ):
+    '''
+    Returns the element for which the adjoint element is contained.
+    inputs:
+    adj_face_array , adj_vert_array , face_array , vert_array
+    '''
+    c=0
+
+    adj_relation = np.zeros((len(adj_face_array) , ))
+
+    for element in face_array:
+        f1 , f2 , f3 = element - 1
+        v1 , v2 , v3 = vert_array[f1] , vert_array[f2] , vert_array[f3]
+        v12 , v13 , v23 = 0.5*(v1+v2) , 0.5*(v1+v3) , 0.5*(v2+v3)
+
+        count_face = 0
+        for adj_element in adj_face_array:
+            f1a , f2a , f3a = adj_element - 1
+            v1a , v2a , v3a = adj_vert_array[f1a] , adj_vert_array[f2a] , adj_vert_array[f3a]
+
+
+            if (search_unique_position_in_array(v1a ,(v1 , v2 , v3 , v12 , v13 , v23) )!= -1 and
+                search_unique_position_in_array(v2a ,(v1 , v2 , v3 , v12 , v13 , v23) )!= -1 and
+                search_unique_position_in_array(v3a ,(v1 , v2 , v3 , v12 , v13 , v23) )!= -1):
+                adj_relation[count_face] = c
+
+            count_face +=1
+
+        c+=1
+
+    return adj_relation
+    
+#def adjoint_mesh(face_array, vert_array , mol_name , output_suffix , dens):
+#    '''
+#    Returns a mesh with a uniform mesh refinement.
+#    '''
+#    aux_sol = np.ones((len(face_array),1))
+    
+#    face_array_adj , vert_array_adj = mesh_refiner(face_array , vert_array , aux_sol , 1.5 )
+    
+#    vert_and_face_arrays_to_text_and_mesh( name , vert_array_adj ,
+#                            face_array_adj.astype(int)[:] , output_suffix +'_adj', dens , Self_build=True)
+            

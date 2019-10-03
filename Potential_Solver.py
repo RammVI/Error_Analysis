@@ -1,5 +1,6 @@
 
 # checked 19.09
+# 11-09 added adjoint mesh
 
 import bempp.api
 import numpy as np
@@ -13,6 +14,9 @@ from constants import values
 from constants import *
 
 from quadrature import *
+
+from Mesh_Ref_V2 import *
+from Grid_Maker_R2 import *
 
 # --------------------------------------------------------------------------------
 
@@ -151,6 +155,43 @@ def S_trad_calc_R( dirichl_space, neumann_space , U , dU ):
 
 # --------------------------------------------------------------------------------
 
+def S_Zeb_in_Adjoint_Mesh(mol_name , face_array , vert_array , dens , input_suffix , N):
+    
+    adj_face , adj_vertex = mesh_refiner(face_array , vert_array , np.ones((len(face_array[0:,]))) , 1.5 )
+
+    vert_and_face_arrays_to_text_and_mesh( mol_name , adj_vertex , adj_face.astype(int) , input_suffix + '_adj' ,
+                                          dens=dens, Self_build=True)
+    
+    adj_grid = Grid_loader( mol_name , dens , input_suffix + '_adj' )
+    
+    adj_face_array = np.transpose(adj_grid.leaf_view.elements) + 1
+    adj_vert_array = np.transpose(adj_grid.leaf_view.vertices)
+
+    adj_el_pos = elements_position_in_normal_grid(adj_face_array , adj_vert_array , face_array , vert_array )
+    
+    dirichl_space_phi = bempp.api.function_space(adj_grid,  mesh_info.phi_space , mesh_info.phi_order)
+    neumann_space_phi = bempp.api.function_space(adj_grid,  mesh_info.phi_space , mesh_info.phi_order) 
+    dual_to_dir_s_phi = bempp.api.function_space(adj_grid,  mesh_info.phi_space , mesh_info.phi_order)
+    
+    phi , dphi = adjoint_equation( dirichl_space_phi , neumann_space_phi , dual_to_dir_s_phi)
+    
+    S_Zeb    , S_Zeb_i = Zeb_aproach_with_u_s_Teo( adj_face_array , adj_vert_array , phi , dphi , N)
+    
+    rearange_S_Zeb_i = np.zeros((len(face_array),1))
+    
+    c=0
+    for G_i in S_Zeb_i:
+        rearange_S_Zeb_i[int(adj_el_pos[c])] += G_i
+        c+=1
+        
+    #print(rearange_S_Zeb_i)
+    
+    return S_Zeb , rearange_S_Zeb_i
+
+
+# ----------------------------------------------------------------
+    
+
 def q_times_G_L(x, n, domain_index, result):
     global ep_m
     result[:] = 1. / (4.*np.pi*ep_m)  * np.sum( mesh_info.q  / np.linalg.norm( x - mesh_info.x_q, axis=1 ) )
@@ -243,6 +284,8 @@ def S_Zeb_calc( face_array , vert_array , phi , dphi , u_s , du_s , N):
     Solv_Zeb_i = Solv_Zeb
     S_Zeb = K*np.sum(Solv_Zeb )
     print('Zeb Solv = {0:10f} '.format(S_Zeb)) 
+    
+
     
     return S_Zeb , Solv_Zeb_i
 

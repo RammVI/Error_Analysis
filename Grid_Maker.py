@@ -1,4 +1,6 @@
 
+# Last revision May 26 15:12
+
 import bempp.api, numpy as np, time, os, matplotlib.pyplot as plt
 from math import pi
 from bempp.api.operators.boundary import sparse, laplace, modified_helmholtz
@@ -16,7 +18,7 @@ def pdb_to_pqr(mol_name , stern_thickness , method = 'amber' ):
     pdb_file , pdb_directory = mol_name+'.pdb' , os.path.join('Molecule',mol_name)
     pqr_file , xyzr_file     = mol_name+'.pqr' , mol_name+'.xyzr'
     
-    if os.path.isfile(os.path.join('Molecule/',mol_name,pqr_file)):
+    if os.path.isfile(os.path.join('Molecule',mol_name,pqr_file)):
         print('File already exists in directory.')
         return None
     
@@ -141,7 +143,7 @@ def xyzr_to_msh(mol_name , dens , probe_radius , stern_thickness , min_area , Ma
         prob_rad, dens_msh = ' -prob ' + str(probe_radius), ' -d ' + str(dens)
         exe= (M_path
               +' -if ' + xyzr_file
-              +' -of ' + os.path.join(mol_directory , mol_name )+'_{0:s}'.format( str(dens) )
+              +' -of ' + os.path.join(mol_directory , mol_name )+'_{0:s}-0'.format( str(dens) )
               + prob_rad  + dens_msh + mode )
         os.system(exe)
         print('Normal .vert & .face Done')
@@ -149,7 +151,7 @@ def xyzr_to_msh(mol_name , dens , probe_radius , stern_thickness , min_area , Ma
         grid = factory_fun_msh( mol_directory , mol_name , min_area , dens , Mallador)
         print('Normal .msh Done')
         
-        # As the possibility of using a stern layer is available
+        # As the possibility of using a stern layer is available:
         if stern_thickness > 0:
             prob_rad, dens_msh = ' -prob ' + str(probe_radius), ' -d ' + str(dens)
             exe= (M_path+' -if '  + xyzr_s_file + 
@@ -325,6 +327,7 @@ def triangle_areas(mol_directory , mol_name , dens , save = False,suffix = '', S
             return area_list
         
     elif Self_build:
+        
         for line in vert_Text[:-1]:
             line = line.split()
             
@@ -337,7 +340,7 @@ def triangle_areas(mol_directory , mol_name , dens , save = False,suffix = '', S
             A, B, C = np.array(line[0:3]).astype(int)
             side1, side2  = vertex[B-1]-vertex[A-1], vertex[C-1]-vertex[A-1]
             face_area = 0.5*np.linalg.norm(np.cross(side1, side2))
-
+            print(A,B,C)
             area_Text.write( str(face_area)+'\n' )
 
             area_list = np.vstack( (area_list , face_area ) )
@@ -350,7 +353,7 @@ def triangle_areas(mol_directory , mol_name , dens , save = False,suffix = '', S
     
     return None
     
-def vert_and_face_arrays_to_text_and_mesh(mol_name , vert_array , face_array , suffix , dens=2.0):
+def vert_and_face_arrays_to_text_and_mesh(mol_name , vert_array , face_array , suffix , dens=2.0 , Self_build=True):
     '''
     This rutine saves the info from vert_array and face_array and creates .msh and areas.txt files
     mol_name : Abreviated name for the molecule
@@ -377,7 +380,7 @@ def vert_and_face_arrays_to_text_and_mesh(mol_name , vert_array , face_array , s
     min_area = 0
 
     factory_fun_msh( mol_directory , mol_name , min_area , dens , Mallador='Self', suffix=suffix)
-    triangle_areas(mol_directory , mol_name , str(dens) + suffix , save = True)
+    triangle_areas(mol_directory , mol_name , str(dens) , suffix = suffix , save = True , Self_build = Self_build)
     
     return None
     
@@ -461,6 +464,4 @@ def centr_list_to_txt(mol_name , centr , Vol=0 , Centroide = True ):
     
     else:
         print('Error')
-        return None
-    
-    
+        return None    
